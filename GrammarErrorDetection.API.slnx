@@ -1,1 +1,7 @@
-<Solution />
+<Solution>
+  <Project Path="GrammarErrorDetection.API/GrammarErrorDetection.API.csproj" />
+  <Project Path="GrammarErrorDetection.Models/GrammarErrorDetection.Models.csproj" />
+  <Project Path="GrammarErrorDetection.Repositories/GrammarErrorDetection.Repositories.csproj" />
+  <Project Path="GrammarErrorDetection.Services/GrammarErrorDetection.Services.csproj" />
+  <Project Path="GrammarErrorDetection.Infrastructure/GrammarErrorDetection.Infrastructure.csproj" />
+</Solution>
