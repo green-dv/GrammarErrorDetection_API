@@ -1,0 +1,41 @@
+# Compilación de todos los proyectos .NET
+[Bb]in/
+[Oo]bj/
+[Aa]rtifacts/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider / ReSharper
+.idea/
+_ReSharper*/
+*.DotSettings.user
+
+# Resultados de pruebas y cobertura
+[Tt]est[Rr]esults/
+coverage/
+*.coverage
+*.coveragexml
+
+# Logs
+*.log
+
+# Paquetes generados
+*.nupkg
+*.snupkg
+
+# Variables de entorno y configuración local
+.env
+.env.*
+!.env.example
+appsettings.Local.json
+appsettings.*.Local.json
+
+# Archivos del sistema
+Thumbs.db
+Desktop.ini
+.DS_Store
