@@ -15,6 +15,8 @@ namespace GrammarErrorDetection.Services.Services
 {
     public sealed class AuthService : IAuthService
     {
+        private static readonly TimeZoneInfo ResponseTimeZone =
+            TimeZoneInfo.FindSystemTimeZoneById("America/La_Paz");
         private readonly IUserRepository userRepository;
         private readonly JwtOptions jwtOptions;
         private readonly IRoleRepository roleRepository;
@@ -33,6 +35,43 @@ namespace GrammarErrorDetection.Services.Services
             Validator.ValidateObject(request, new ValidationContext(request), validateAllProperties: true);
 
             var user = await ValidateCredentialsAsync(request.Email.Trim(), request.Password);
+            return await CreateLoginResponseAsync(user);
+        }
+
+        public async Task<LoginResponse> SignupAsync(SignupRequest request)
+        {
+            ArgumentNullException.ThrowIfNull(request);
+            Validator.ValidateObject(request, new ValidationContext(request), validateAllProperties: true);
+            if (Encoding.UTF8.GetByteCount(request.Password) > 72)
+                throw new ValidationException("La contraseña no puede superar 72 bytes UTF-8 para BCrypt.");
+
+            var roles = await roleRepository.List(new PaginationDto<RoleList>
+            {
+                PageNumber = 1,
+                PageSize = 1,
+                Filter = new RoleList { Name = "Student", Active = true }
+            });
+            var studentRole = roles.SingleOrDefault();
+            if (studentRole is null || !studentRole.Active || studentRole.Name != "Student")
+                throw new InvalidOperationException("No se encontró el rol activo Student para el registro.");
+
+            var user = await userRepository.Insert(new UserInsert
+            {
+                FirstName = request.FirstName.Trim(),
+                LastName = request.LastName.Trim(),
+                CI = request.CI.Trim(),
+                Email = request.Email.Trim(),
+                Phone = request.Phone?.Trim(),
+                Password = BCrypt.Net.BCrypt.HashPassword(request.Password),
+                RoleId = studentRole.Id,
+                Active = true
+            });
+
+            return await CreateLoginResponseAsync(user);
+        }
+
+        private async Task<LoginResponse> CreateLoginResponseAsync(UserEntity user)
+        {
             var roles = await roleRepository.List(new PaginationDto<RoleList>
             {
                 PageNumber = 1,
@@ -49,7 +88,7 @@ namespace GrammarErrorDetection.Services.Services
             return new LoginResponse
             {
                 AccessToken = GenerateJwtToken(user, role.Name, expiresAt),
-                ExpiresAt = expiresAt,
+                ExpiresAt = TimeZoneInfo.ConvertTime(expiresAt, ResponseTimeZone),
                 User = new UserAuthResponse
                 {
                     Id = user.Id,
