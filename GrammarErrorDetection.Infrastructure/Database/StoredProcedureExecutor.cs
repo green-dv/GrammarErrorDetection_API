@@ -93,7 +93,6 @@ namespace GrammarErrorDetection.Infrastructure.Database
                             throw new KeyNotFoundException("El procedimiento no devolvió una entidad.");
 
                         var type = $"{QuoteIdentifier(result.Schema!)}.{QuoteIdentifier(result.TypeName!)}";
-                        // El servidor desglosa el compuesto. Su contenido se envía como un valor parametrizado.
                         await using var expand = new NpgsqlCommand(
                             $"SELECT ($1::{type}).* WHERE NOT ($1::{type} IS NULL);", connection, transaction);
                         expand.Parameters.Add(new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Text, Value = output });
