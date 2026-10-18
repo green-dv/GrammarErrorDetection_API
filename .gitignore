@@ -20,6 +20,12 @@ _ReSharper*/
 coverage/
 *.coverage
 *.coveragexml
+[Tt]ests/
+[Tt]est/
+[Pp]rueba/
+[Pp]ruebas/
+
+[Ddocs]/
 
 # Logs
 *.log
