@@ -15,6 +15,8 @@ namespace GrammarErrorDetection.Services.Services
 {
     public sealed class AuthService : IAuthService
     {
+        private static readonly TimeZoneInfo ResponseTimeZone =
+            TimeZoneInfo.FindSystemTimeZoneById("America/La_Paz");
         private readonly IUserRepository userRepository;
         private readonly JwtOptions jwtOptions;
         private readonly IRoleRepository roleRepository;
@@ -86,7 +88,7 @@ namespace GrammarErrorDetection.Services.Services
             return new LoginResponse
             {
                 AccessToken = GenerateJwtToken(user, role.Name, expiresAt),
-                ExpiresAt = expiresAt,
+                ExpiresAt = TimeZoneInfo.ConvertTime(expiresAt, ResponseTimeZone),
                 User = new UserAuthResponse
                 {
                     Id = user.Id,
