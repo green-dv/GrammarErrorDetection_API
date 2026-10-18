@@ -2,10 +2,12 @@ using GrammarErrorDetection.Models.APIRequest;
 using GrammarErrorDetection.Models.Grammar.VerificationCodes;
 using GrammarErrorDetection.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace GrammarErrorDetection.API.Controllers
 {
     [ApiController]
+    [Authorize(Roles = "Coordinator")]
     [Route("api/[controller]")]
     public sealed class VerificationCodeController : ControllerBase
     {
