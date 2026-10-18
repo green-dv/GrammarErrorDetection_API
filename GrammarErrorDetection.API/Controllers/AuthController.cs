@@ -19,6 +19,18 @@ namespace GrammarErrorDetection.API.Controllers
         }
 
         [AllowAnonymous]
+        [HttpPost("Signup")]
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+        [ProducesResponseType(typeof(Wrapper<LoginResponse>), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(Wrapper<object>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(Wrapper<object>), StatusCodes.Status409Conflict)]
+        public async Task<ActionResult<Wrapper<LoginResponse>>> Signup([FromBody] SignupRequest request)
+        {
+            var data = await service.SignupAsync(request);
+            return StatusCode(StatusCodes.Status201Created, new Wrapper<LoginResponse> { Data = data });
+        }
+
+        [AllowAnonymous]
         [HttpPost("Login")]
         [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
         [ProducesResponseType(typeof(Wrapper<LoginResponse>), StatusCodes.Status200OK)]
