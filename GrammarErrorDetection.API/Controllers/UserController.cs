@@ -2,10 +2,12 @@ using GrammarErrorDetection.Models.APIRequest;
 using GrammarErrorDetection.Models.Grammar.Users;
 using GrammarErrorDetection.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace GrammarErrorDetection.API.Controllers
 {
     [ApiController]
+    [Authorize]
     [Route("api/[controller]")]
     public sealed class UserController : ControllerBase
     {
