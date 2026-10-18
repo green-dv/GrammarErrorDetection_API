@@ -2,10 +2,12 @@ using GrammarErrorDetection.Models.APIRequest;
 using GrammarErrorDetection.Models.Grammar.Roles;
 using GrammarErrorDetection.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace GrammarErrorDetection.API.Controllers
 {
     [ApiController]
+    [Authorize]
     [Route("api/[controller]")]
     public sealed class RoleController : ControllerBase
     {
@@ -27,8 +29,8 @@ namespace GrammarErrorDetection.API.Controllers
                 Count = data.Count
             };
         }
-
         [HttpPost]
+        [Authorize(Roles = "Coordinator")]
         public async Task<Wrapper<RoleEntity>> Insert([FromBody] RoleInsert request)
         {
             var data = await service.Insert(request);
@@ -37,6 +39,7 @@ namespace GrammarErrorDetection.API.Controllers
         }
 
         [HttpPut]
+        [Authorize(Roles = "Coordinator")]
         public async Task<Wrapper<RoleEntity>> Update([FromBody] RoleUpdate request)
         {
             var data = await service.Update(request);

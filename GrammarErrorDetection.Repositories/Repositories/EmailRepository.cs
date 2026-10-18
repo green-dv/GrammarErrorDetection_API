@@ -5,7 +5,7 @@ using System.Net.Mail;
 
 namespace GrammarErrorDetection.Repositories.Repositories
 {
-    internal class EmailRepository : IEmailRepository
+    public sealed class EmailRepository : IEmailRepository
     {
         private readonly IConfiguration configuration;
         public EmailRepository(IConfiguration configuration)
@@ -15,8 +15,8 @@ namespace GrammarErrorDetection.Repositories.Repositories
 
         public async Task SendVerificationEmailAsync(string name, string email, string message, string subject)
         {
-            string senderEmail = configuration["Gmail:Email"] ?? throw new Exception("Gmail Email not configured");
-            string senderPassword = configuration["Gmail:AppPassword"] ?? throw new Exception("Gmail AppPassword not configured");
+            string senderEmail = configuration["GMAIL_EMAIL"] ?? configuration["Gmail:Email"] ?? throw new InvalidOperationException("GMAIL_EMAIL no configurado.");
+            string senderPassword = configuration["GMAIL_APPPASSWORD"] ?? configuration["Gmail:AppPassword"] ?? throw new InvalidOperationException("GMAIL_APPPASSWORD no configurado.");
 
             using var smtpClient = new SmtpClient("smtp.gmail.com")
             {
@@ -25,12 +25,12 @@ namespace GrammarErrorDetection.Repositories.Repositories
                 EnableSsl = true,
             };
 
-            var mailMessage = new MailMessage
+            using var mailMessage = new MailMessage
             {
                 From = new MailAddress(senderEmail, "Grammar Error Detection"),
                 Subject = subject,
                 Body = $"Hola {name}, {message}",
-                IsBodyHtml = true,
+                IsBodyHtml = false,
             };
 
             mailMessage.To.Add(new MailAddress(email, name));

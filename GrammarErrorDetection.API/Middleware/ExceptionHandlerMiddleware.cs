@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Data.Common;
 using GrammarErrorDetection.Models.APIRequest;
 using Microsoft.AspNetCore.Mvc;
+using GrammarErrorDetection.Services.Exceptions;
 
 namespace GrammarErrorDetection.API.Middleware
 {
@@ -97,7 +98,8 @@ namespace GrammarErrorDetection.API.Middleware
                 BadHttpRequestException request => (request.StatusCode, GetStatusMessage(request.StatusCode)),
                 ValidationException or ArgumentException => (StatusCodes.Status400BadRequest, exception.Message),
                 KeyNotFoundException => (StatusCodes.Status404NotFound, exception.Message),
-                UnauthorizedAccessException => (StatusCodes.Status403Forbidden, GetStatusMessage(StatusCodes.Status403Forbidden)),
+                AuthConflictException => (StatusCodes.Status409Conflict, exception.Message),
+                UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "Credenciales o código de verificación no válidos."),
                 DbException { SqlState: "23505" or "23503" } => (StatusCodes.Status409Conflict, GetStatusMessage(StatusCodes.Status409Conflict)),
                 DbException { SqlState: "23502" or "23514" or "22001" or "22P02" } => (StatusCodes.Status400BadRequest, GetStatusMessage(StatusCodes.Status400BadRequest)),
                 HttpRequestException => (StatusCodes.Status502BadGateway, GetStatusMessage(StatusCodes.Status502BadGateway)),
