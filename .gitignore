@@ -25,6 +25,8 @@ coverage/
 [Pp]rueba/
 [Pp]ruebas/
 
+[Ddocs]/
+
 # Logs
 *.log
 
