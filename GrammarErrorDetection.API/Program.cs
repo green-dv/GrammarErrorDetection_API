@@ -8,13 +8,15 @@ using GrammarErrorDetection.Services.Services;
 using GrammarErrorDetection.Services.Configuration;
 using Npgsql;
 using Microsoft.OpenApi;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var envPath = Path.Combine(Directory.GetCurrentDirectory(), ".env");
 
 if (!File.Exists(envPath))
 {
-    envPath = Path.GetFullPath(
-        Path.Combine(Directory.GetCurrentDirectory(), "..", ".env"));
+    envPath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", ".env"));
 }
 
 if (File.Exists(envPath))
@@ -42,6 +44,27 @@ if (File.Exists(envPath))
 
 var builder = WebApplication.CreateBuilder(args);
 
+var jwtOptions = JwtOptions.FromConfiguration(builder.Configuration);
+builder.Services.AddSingleton(jwtOptions);
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Secret)),
+            ValidateIssuer = true,
+            ValidIssuer = jwtOptions.Issuer,
+            ValidateAudience = true,
+            ValidAudience = jwtOptions.Audience,
+            ValidateLifetime = true,
+            RoleClaimType = System.Security.Claims.ClaimTypes.Role,
+            ClockSkew = TimeSpan.Zero,
+            ValidAlgorithms = [SecurityAlgorithms.HmacSha256]
+        };
+    });
+builder.Services.AddAuthorization();
+
 var expirationSetting = builder.Configuration[VerificationCodeOptions.EnvironmentVariable] ?? "10";
 if (!int.TryParse(expirationSetting, out var expirationMinutes) || expirationMinutes < 1)
 {
@@ -59,10 +82,7 @@ builder.Services.AddSingleton<NpgsqlDataSource>(provider =>
     {
         var value = configuration[name];
 
-        return !string.IsNullOrWhiteSpace(value)
-            ? value
-            : throw new InvalidOperationException(
-                $"Falta configurar {name} en el entorno o en .env.");
+        return !string.IsNullOrWhiteSpace(value) ? value : throw new InvalidOperationException($"Falta configurar {name} en el entorno o en .env.");
     }
 
     if (!int.TryParse(Required("DB_PORT"), out var port) ||
@@ -88,6 +108,7 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IVerificationCodeRepository, VerificationCodeRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IVerificationCodeService, VerificationCodeService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 
@@ -121,6 +142,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
