@@ -125,6 +125,15 @@ Los recursos `/api/User`, `/api/VerificationCode` y `/api/Role` admiten:
 
 No hay operaciones DELETE. Los services devuelven entidades o listas; los controllers construyen `Wrapper<T>` con `Data` y, en listados, `Count` (cantidad de elementos de la página). Los errores los gestiona el middleware existente.
 
+El CRUD `/api/Evaluation` administra las evaluaciones por inscripción y periodo,
+con acceso para coordinadores. `ModuleName` incluye la relación opcional
+`NextModuleId`. Consulta [evaluaciones y siguiente módulo](docs/evaluations-next-module.md)
+para los contratos, ejemplos y el script PostgreSQL que debe aplicarse antes de usarlos.
+
+El listado administrativo `GET /api/User/summary` agrega curso actual, último curso
+y nota final del último curso. Consulta [el contrato de User_List_Summary](docs/user-summary.md)
+para los filtros, columnas del cursor y script SQL correspondiente.
+
 Configura la conexión PostgreSQL mediante `ConnectionStrings:Grammar` en la configuración de ASP.NET Core o la variable de entorno `ConnectionStrings__Grammar`, por ejemplo:
 
 ```powershell
