@@ -21,6 +21,11 @@ coverage/
 *.coverage
 *.coveragexml
 [Tt]ests/
+# Conservar las comprobaciones de los módulos; bin/obj siguen ignorados.
+!/tests/
+/tests/*
+!/tests/RegistrationGeneration.Checks/
+!/tests/EvaluationChecks/
 [Tt]est/
 [Pp]rueba/
 [Pp]ruebas/
