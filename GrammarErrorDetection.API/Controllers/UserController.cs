@@ -30,6 +30,14 @@ namespace GrammarErrorDetection.API.Controllers
             };
         }
 
+        [HttpGet("summary")]
+        [Authorize(Roles = "Coordinator")]
+        public async Task<Wrapper<List<UserSummaryDto>>> ListSummary([FromQuery] PaginationDto<UserSummaryList> request)
+        {
+            var data = await service.ListSummary(request);
+            return new Wrapper<List<UserSummaryDto>> { Data = data, Count = data.Count };
+        }
+
         [HttpPost]
         public async Task<Wrapper<UserEntity>> Insert([FromBody] UserInsert request)
         {
