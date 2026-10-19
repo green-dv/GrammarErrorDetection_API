@@ -21,6 +21,9 @@ namespace GrammarErrorDetection.Services.Services
         public Task<List<UserEntity>> List(PaginationDto<UserList> request)
             => repository.List(request);
 
+        public Task<List<UserSummaryDto>> ListSummary(PaginationDto<UserSummaryList> request)
+            => repository.ListSummary(request);
+
         public Task<UserEntity> Insert(UserInsert request)
             => repository.Insert(request);
 

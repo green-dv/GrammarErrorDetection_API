@@ -46,6 +46,33 @@ namespace GrammarErrorDetection.Repositories.Repositories
             return table.AsEnumerable().Select(ConvertToEntity.UserToEntity).ToList();
         }
 
+        public async Task<List<UserSummaryDto>> ListSummary(PaginationDto<UserSummaryList> request)
+        {
+            RepositoryValidation.ValidatePagination(request);
+            var filter = request.Filter ?? throw new ArgumentException("Debes indicar el año y bimestre del resumen.", nameof(request));
+            var response = await executor.ExecuteStoredProcedureAsync(
+                "grammar", "User_List_Summary",
+                [
+                    new("FirstName", NpgsqlDbType.Varchar, filter.FirstName),
+                    new("LastName", NpgsqlDbType.Varchar, filter.LastName),
+                    new("CI", NpgsqlDbType.Varchar, filter.CI),
+                    new("Phone", NpgsqlDbType.Varchar, filter.Phone),
+                    new("Email", NpgsqlDbType.Varchar, filter.Email),
+                    new("CreatedAt", NpgsqlDbType.Date, filter.CreatedAt),
+                    new("RoleId", NpgsqlDbType.Uuid, filter.RoleId),
+                    new("Active", NpgsqlDbType.Boolean, filter.Active),
+                    new("Year", NpgsqlDbType.Integer, filter.Year),
+                    new("Bimester", NpgsqlDbType.Integer, filter.Bimester),
+                    new("IsEnrolled", NpgsqlDbType.Boolean, filter.IsEnrolled),
+                    new("PageNumber", NpgsqlDbType.Integer, request.PageNumber),
+                    new("PageSize", NpgsqlDbType.Integer, request.PageSize),
+                    new("Users", NpgsqlDbType.Refcursor, "repository_list", ParameterDirection.InputOutput)
+                ], StoredProcedureResult.Cursor("Users"));
+
+            using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
+            return table.AsEnumerable().Select(ConvertToDto.UserSummaryToDto).ToList();
+        }
+
         public async Task<UserEntity> Insert(UserInsert request)
         {
             RepositoryValidation.ValidateInput(request);
