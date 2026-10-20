@@ -45,11 +45,11 @@ internal static class RegistrationGenerationPlanner
         var targets = targetClasses.Where(c => c.Active && c.Year == request.Year && c.Bimester == request.Bimester)
             .OrderBy(c => c.Id).ToList();
         var rooms = classrooms.Where(c => c.Active).ToDictionary(c => c.Id);
-        var sourceRegistrations = registrations.Where(r => r.Active && r.ClassId.HasValue
+        var sourceRegistrations = registrations.Where(r => r.Active == true && r.ClassId.HasValue
                 && sources.ContainsKey(r.ClassId.Value) && ReservesSeat(r))
             .OrderBy(r => r.ClassId).ThenBy(r => r.UserId).ThenBy(r => r.Id).ToList();
         var targetIds = targets.Select(c => c.Id).ToHashSet();
-        var targetRegistrations = registrations.Where(r => r.Active && r.ClassId.HasValue
+        var targetRegistrations = registrations.Where(r => r.Active == true && r.ClassId.HasValue
             && targetIds.Contains(r.ClassId.Value) && ReservesSeat(r)).ToList();
         var plan = new Plan();
         foreach (var target in targets)

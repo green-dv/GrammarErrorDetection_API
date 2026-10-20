@@ -164,6 +164,103 @@ coincidir con el módulo, año y bimestre del filtro. Sin `ClassId` se conserva 
 búsqueda para crear cursos. Un curso vacío o con notas pendientes no se considera
 terminado. Esta validación del listado no bloquea por sí sola las actualizaciones.
 
+## Solicitudes de inscripción
+
+El historial de cursos se consulta con
+`GET /api/Registration/mine/courses?PageNumber=1&PageSize=20` (Student, identidad del JWT)
+o `GET /api/Registration/students/{studentId}/courses?PageNumber=1&PageSize=20`
+(Coordinator). Ambos devuelven `Wrapper<List<StudentCourseHistoryDto>>` con
+`registrationId`, `classId`, `moduleId`, `moduleName`, `registrationDate`,
+`teacherName`, `exam1Score`, `exam2Score`, `parallel`, `startTime`, `endTime`,
+`year`, `bimester` y `status`. El orden es fecha de inscripción descendente
+(más reciente primero), con fechas nulas al final; los empates se resuelven
+por UpdatedAt e ID descendentes. La paginación se aplica después de ordenar.
+PageNumber y PageSize son opcionales (1 y 20 por defecto), ambos mayores a cero.
+
+El historial incluye cursos anteriores inactivos y excluye inscripciones sin curso,
+rechazadas o canceladas. Usa `Registration_List`, `Class_List` y `Evaluation_List`,
+sin SQL adicional. Cada nota es el total de componentes del examen del estudiante,
+no el promedio del curso. Los exámenes se calculan de forma independiente:
+una nota ausente, incompleta, duplicada o inválida se devuelve como null; cero
+es una nota válida. No necesita los campos opcionales Active, CreatedAt ni InvoiceLink
+del cursor de inscripciones. `count` es la cantidad de elementos de la página.
+
+El estudiante usa su identidad del JWT; los cuerpos de solicitud no admiten
+`userId`, estado ni activación. Las rutas nuevas están bajo `/api/Registration`:
+
+| Rol | Método y ruta | Uso |
+|---|---|---|
+| Student | `GET /mine?PageNumber=1&PageSize=20` | Consultar sus propias inscripciones, incluyendo rechazadas. |
+| Student | `GET /available-courses?PageNumber=1&PageSize=20&Filter.Year=2027&Filter.Bimester=1` | Cursos elegibles del año y bimestre seleccionados. |
+| Student | `POST /apply` | Crear o editar la solicitud con `{ "classId": "uuid", "invoiceLink": "opcional" }`. |
+| Coordinator | `GET /?PageNumber=1&PageSize=20&Filter.Status=Pending` | Consultar las solicitudes pendientes. |
+| Coordinator | `PUT /{id}/decision` | Resolver con `{ "approved": true }` o `{ "approved": false }`. |
+
+El listado devuelve `classId`, `moduleNameId`, `moduleName`, `classroomId`,
+`classroomName`, `parallel`, `startTime`, `endTime`, fechas, año, bimestre y
+`availableSeats`. Filtra cursos, módulos y aulas activos, fechas no terminadas
+y cupo disponible. El cupo disponible para el solicitante excluye su propia
+reserva, para permitir conservar o editar una inscripción pendiente en un curso lleno.
+
+Se toma la última inscripción activa de un periodo anterior que no esté rechazada
+ni cancelada, aunque su curso ya esté inactivo. Con ambos exámenes completos y
+válidos, una nota final de **70 o más** habilita exclusivamente `NextModule`;
+una nota **menor a 70** habilita el mismo módulo. Sin notas completas no se ofrecen
+cursos. Sin historial se ofrecen los módulos de entrada (ningún módulo los señala
+como `NextModule`). Aprobar un módulo terminal no habilita otro módulo.
+
+La solicitud siempre queda `Pending` y activa. Se edita la pendiente del mismo
+año/bimestre, conservando su ID; también se puede reutilizar una rechazada de ese
+periodo o una pendiente sin curso. Si existen varias pendientes activas en el periodo,
+se exige al coordinador resolver la ambigüedad. Una inscripción activa `Approved`
+bloquea nuevas solicitudes y modificaciones del estudiante en ese año/bimestre;
+las aprobaciones históricas permiten continuar en periodos posteriores.
+
+La decisión exige una inscripción activa `Pending`. Aprobar vuelve a validar
+elegibilidad y cupo. Rechazar guarda `Status=Rejected` y `Active=false`, por lo que
+los listados de pertenencia al curso que filtran inscripciones activas dejan de
+incluirla. El CRUD previo del coordinador también impone `Active=false` al rechazar.
+El listado general de inscripciones queda reservado a `Coordinator`; el estudiante
+consulta `/mine` y no puede cambiar el usuario mediante filtros.
+
+Los dos listados públicos (`GET /api/Registration` y `GET /api/Registration/mine`)
+usan el nuevo `Registration_List` con los filtros opcionales `Filter.UserId`,
+`Filter.ModuleNameId`, `Filter.RegistrationDate` (YYYY-MM-DD) y `Filter.Status`,
+además de `PageNumber` y `PageSize` mayores a cero. En `/mine`, `UserId` siempre
+se obtiene del JWT y reemplaza cualquier valor recibido.
+
+Cada elemento de `data` contiene `registrationId`, `userId`, `classId`, `firstName`, `lastName`, `ci`,
+`phone`, `moduleName`, `moduleId`, `registrationDate`, `status` y `updatedAt`. `moduleName`
+y `moduleId`, junto con `classId`, pueden ser null si todavía no hay curso; `phone` y `registrationDate` también
+admiten null. `count` indica la cantidad de elementos de la página.
+El procedimiento no recibe filtros `Id`, `ClassId`, `InvoiceLink`, `CreatedAt`
+ni `Active`. La columna `RegistrationId` se expone como `registrationId` y permite
+resolver la solicitud mediante `PUT /api/Registration/{registrationId}/decision`.
+
+Los flujos internos de elegibilidad, generación, edición y aprobación también usan
+`Registration_List`; el repositorio no realiza consultas directas a tablas.
+El SQL y su despliegue se administran fuera de este repositorio.
+Los listados públicos proyectan los doce campos anteriores. El mapeo de
+`Registration_List` se separa del compuesto completo retornado por Insert/Update:
+no exige `InvoiceLink`, `CreatedAt` ni `Active`. Si faltan, se conservan como null;
+si el SP los devuelve, se leen sus valores reales. Insert/Update mantienen el mapeo
+completo de tabla. No se modifica aquí el SQL del procedimiento.
+Las validaciones de activación y cupo requieren un valor real de `Active`;
+si el cursor no lo incluye, esas operaciones informan que falta el dato, sin
+considerar activas todas las inscripciones ni ejecutar escrituras con esa suposición.
+La API solo requiere ejecutar los procedimientos, sin SELECT sobre las tablas.
+Insert y Update conservan sus procedimientos y respuestas de entidad completa.
+Se mantiene el modelo
+de operaciones CRUD independientes: solicitudes simultáneas entre validación y
+escritura requieren restricciones o bloqueo transaccional en PostgreSQL para
+garantizar la unicidad y el cupo bajo concurrencia.
+
+Comprobaciones del servicio con repositorios en memoria:
+
+```powershell
+dotnet run --project GrammarErrorDetection.Checks/GrammarErrorDetection.Checks.csproj
+```
+
 Configura la conexión PostgreSQL mediante `ConnectionStrings:Grammar` en la configuración de ASP.NET Core o la variable de entorno `ConnectionStrings__Grammar`, por ejemplo:
 
 ```powershell

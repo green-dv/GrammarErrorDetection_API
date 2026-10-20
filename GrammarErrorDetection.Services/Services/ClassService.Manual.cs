@@ -26,7 +26,7 @@ public sealed partial class ClassService
                 ?? throw new ValidationException("El curso no existe.");
             if (course.ModuleNameId != filter.ModuleNameId || course.Year != filter.Year || course.Bimester != filter.Bimester)
                 throw new ValidationException("El curso no corresponde al módulo, año y bimestre indicados.");
-            var enrolled = snapshot.Registrations.Where(r => r.Active && r.ClassId == classId
+            var enrolled = snapshot.Registrations.Where(r => r.Active == true && r.ClassId == classId
                 && ManualClassEligibility.ReservesSeat(r)).ToList();
             var grades = snapshot.Evaluations.ToLookup(e => e.RegistrationId);
             // Una clase vacía no está terminada. Cero y reprobación también son notas completas.

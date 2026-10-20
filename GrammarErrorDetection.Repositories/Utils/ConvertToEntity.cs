@@ -118,12 +118,32 @@ namespace GrammarErrorDetection.Repositories.Utils
         /// </summary>
         /// <param name="row">Fila con las columnas de la entidad, incluidos sus campos anulables.</param>
         public static RegistrationEntity RegistrationToEntity(DataRow row)
+            => RegistrationToEntity(row, "Id");
+
+        public static RegistrationEntity RegistrationListToEntity(DataRow row)
+        {
+            ArgumentNullException.ThrowIfNull(row);
+            return new RegistrationEntity
+            {
+                Id = row.Field<Guid>("RegistrationId"),
+                UserId = row.Field<Guid>("UserId"),
+                ClassId = row.Field<Guid?>("ClassId"),
+                RegistrationDate = row.Field<DateTime?>("RegistrationDate"),
+                Status = row.Field<string>("Status") ?? throw new DataException("Falta Status en Registration_List."),
+                UpdatedAt = row.Field<DateTime>("UpdatedAt"),
+                InvoiceLink = row.Table.Columns.Contains("InvoiceLink") ? row.Field<string?>("InvoiceLink") : null,
+                CreatedAt = row.Table.Columns.Contains("CreatedAt") ? row.Field<DateTime?>("CreatedAt") : null,
+                Active = row.Table.Columns.Contains("Active") ? row.Field<bool?>("Active") : null
+            };
+        }
+
+        private static RegistrationEntity RegistrationToEntity(DataRow row, string idColumn)
         {
             ArgumentNullException.ThrowIfNull(row);
 
             return new RegistrationEntity
             {
-                Id = (Guid)row["Id"],
+                Id = (Guid)row[idColumn],
                 UserId = (Guid)row["UserId"],
                 ClassId = row.Field<Guid?>("ClassId"),
                 RegistrationDate = row.Field<DateTime?>("RegistrationDate"),

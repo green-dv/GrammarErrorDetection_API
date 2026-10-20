@@ -19,7 +19,7 @@ internal static class ManualClassEligibility
         var moduleMap = modules.ToDictionary(m => m.Id);
         var incoming = modules.Where(m => m.NextModule.HasValue).Select(m => m.NextModule!.Value).ToHashSet();
         var grades = evaluations.ToLookup(e => e.RegistrationId);
-        var byStudent = registrations.Where(r => r.Active).ToLookup(r => r.UserId);
+        var byStudent = registrations.Where(r => r.Active == true).ToLookup(r => r.UserId);
         var results = new List<Candidate>();
         foreach (var student in students.Where(s => s.Active).OrderBy(s => s.LastName).ThenBy(s => s.FirstName).ThenBy(s => s.Id))
         {

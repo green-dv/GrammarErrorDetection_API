@@ -19,31 +19,88 @@ namespace GrammarErrorDetection.Repositories.Repositories
             this.executor = executor;
         }
 
-        public async Task<List<RegistrationEntity>> List(PaginationDto<RegistrationList> request)
+        public async Task<List<RegistrationListItemDto>> ListSummary(PaginationDto<RegistrationSummaryList> request)
         {
             RepositoryValidation.ValidatePagination(request);
-            var filter = request.Filter ?? new RegistrationList();
+            using var table = await ReadListPage(request);
+            return table.AsEnumerable().Select(ConvertToDto.RegistrationListToDto).ToList();
+        }
+
+        private async Task<DataTable> ReadListPage(PaginationDto<RegistrationSummaryList> request)
+        {
+            var filter = request.Filter ?? new RegistrationSummaryList();
 
             var response = await executor.ExecuteStoredProcedureAsync(
                 "grammar",
                 "Registration_List",
                 [
-                    new("Id", NpgsqlDbType.Uuid, filter.Id),
                     new("UserId", NpgsqlDbType.Uuid, filter.UserId),
-                    new("ClassId", NpgsqlDbType.Uuid, filter.ClassId),
+                    new("ModuleNameId", NpgsqlDbType.Uuid, filter.ModuleNameId),
                     new("RegistrationDate", NpgsqlDbType.Date, filter.RegistrationDate),
                     new("Status", NpgsqlDbType.Varchar, filter.Status),
-                    new("InvoiceLink", NpgsqlDbType.Varchar, filter.InvoiceLink),
-                    new("CreatedAt", NpgsqlDbType.Date, filter.CreatedAt),
-                    new("Active", NpgsqlDbType.Boolean, filter.Active),
                     new("PageNumber", NpgsqlDbType.Integer, request.PageNumber),
                     new("PageSize", NpgsqlDbType.Integer, request.PageSize),
                     new("Results", NpgsqlDbType.Refcursor, "repository_list", ParameterDirection.InputOutput)
                 ],
                 StoredProcedureResult.Cursor("Results"));
 
-            using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
-            return table.AsEnumerable().Select(ConvertToEntity.RegistrationToEntity).ToList();
+            return response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
+        }
+
+        // Se usan los mismos parámetros del SP público. Los filtros internos que
+        // no admite su firma se aplican antes de paginar el resultado solicitado.
+        public async Task<List<RegistrationEntity>> List(PaginationDto<RegistrationList> request)
+        {
+            RepositoryValidation.ValidatePagination(request);
+            var filter = request.Filter ?? new RegistrationList();
+            if (filter.Id is null && filter.ClassId is null && filter.Active is null
+                && filter.InvoiceLink is null && filter.CreatedAt is null)
+            {
+                using var table = await ReadListPage(new PaginationDto<RegistrationSummaryList>
+                {
+                    PageNumber = request.PageNumber, PageSize = request.PageSize,
+                    Filter = new RegistrationSummaryList
+                    {
+                        UserId = filter.UserId, RegistrationDate = filter.RegistrationDate, Status = filter.Status
+                    }
+                });
+                return table.AsEnumerable().Select(ConvertToEntity.RegistrationListToEntity).ToList();
+            }
+            var result = new List<RegistrationEntity>();
+            var offset = ((long)request.PageNumber - 1) * request.PageSize;
+            long matched = 0;
+            const int batchSize = 200;
+            for (var page = 1; ; page++)
+            {
+                using var table = await ReadListPage(new PaginationDto<RegistrationSummaryList>
+                {
+                    PageNumber = page, PageSize = batchSize,
+                    Filter = new RegistrationSummaryList
+                    {
+                        UserId = filter.UserId, RegistrationDate = filter.RegistrationDate, Status = filter.Status
+                    }
+                });
+                foreach (var row in table.AsEnumerable())
+                {
+                    var registration = ConvertToEntity.RegistrationListToEntity(row);
+                    if (filter.Active.HasValue && !registration.Active.HasValue)
+                        throw new DataException("Registration_List no devuelve Active; no se pueden filtrar inscripciones activas sin ese dato.");
+                    if (filter.CreatedAt.HasValue && !registration.CreatedAt.HasValue)
+                        throw new DataException("Registration_List no devuelve CreatedAt; no se puede aplicar ese filtro.");
+                    if (filter.InvoiceLink is not null && !table.Columns.Contains("InvoiceLink"))
+                        throw new DataException("Registration_List no devuelve InvoiceLink; no se puede aplicar ese filtro.");
+                    if ((filter.Id.HasValue && registration.Id != filter.Id.Value)
+                        || (filter.ClassId.HasValue && registration.ClassId != filter.ClassId.Value)
+                        || (filter.Active.HasValue && registration.Active != filter.Active.Value)
+                        || (filter.InvoiceLink is not null && registration.InvoiceLink != filter.InvoiceLink)
+                        || (filter.CreatedAt.HasValue && DateOnly.FromDateTime(registration.CreatedAt!.Value) != filter.CreatedAt.Value))
+                        continue;
+                    if (matched++ < offset) continue;
+                    result.Add(registration);
+                    if (result.Count == request.PageSize) return result;
+                }
+                if (table.Rows.Count < batchSize) return result;
+            }
         }
 
         public async Task<RegistrationEntity> Insert(RegistrationInsert request)
