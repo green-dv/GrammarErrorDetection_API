@@ -14,11 +14,11 @@ namespace GrammarErrorDetection.Models.Grammar.Registrations
 
         public string? InvoiceLink { get; set; }
 
-        public DateTime CreatedAt { get; set; }
+        public DateTime? CreatedAt { get; set; }
 
         public DateTime UpdatedAt { get; set; }
 
-        public bool Active { get; set; } = true;
+        public bool? Active { get; set; } = true;
     }
 }
 

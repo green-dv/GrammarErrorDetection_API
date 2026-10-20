@@ -3,6 +3,8 @@ using GrammarErrorDetection.Models.Grammar.Registrations;
 using GrammarErrorDetection.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
+using GrammarErrorDetection.Models.Grammar.Validation;
 
 namespace GrammarErrorDetection.API.Controllers
 {
@@ -20,15 +22,70 @@ namespace GrammarErrorDetection.API.Controllers
         }
 
         [HttpGet]
-        public async Task<Wrapper<List<RegistrationEntity>>> List([FromQuery] PaginationDto<RegistrationList> request)
+        [Authorize(Roles = "Coordinator")]
+        public async Task<Wrapper<List<RegistrationListItemDto>>> List([FromQuery] PaginationDto<RegistrationSummaryList> request)
         {
             var data = await service.List(request);
-            return new Wrapper<List<RegistrationEntity>>
+            return new Wrapper<List<RegistrationListItemDto>>
             {
                 Data = data,
                 Count = data.Count
             };
         }
+
+        [HttpGet("mine")]
+        [Authorize(Roles = "Student")]
+        public async Task<Wrapper<List<RegistrationListItemDto>>> ListMine([FromQuery] PaginationDto<RegistrationSummaryList> request)
+        {
+            var data = await service.ListMine(StudentId(), request);
+            return new Wrapper<List<RegistrationListItemDto>> { Data = data, Count = data.Count };
+        }
+
+        [HttpGet("available-courses")]
+        [Authorize(Roles = "Student")]
+        public async Task<Wrapper<List<AvailableRegistrationCourseDto>>> ListAvailableCourses(
+            [FromQuery] PaginationDto<AvailableRegistrationCourseList> request)
+        {
+            var data = await service.ListAvailableCourses(StudentId(), request);
+            return new Wrapper<List<AvailableRegistrationCourseDto>> { Data = data, Count = data.Count };
+        }
+
+        [HttpGet("mine/courses")]
+        [Authorize(Roles = "Student")]
+        public async Task<Wrapper<List<StudentCourseHistoryDto>>> ListMyCourses([FromQuery] StudentCourseHistoryQuery request)
+        {
+            var data = await service.ListStudentCourses(StudentId(), request);
+            return new Wrapper<List<StudentCourseHistoryDto>> { Data = data, Count = data.Count };
+        }
+
+        [HttpGet("students/{studentId:guid}/courses")]
+        [Authorize(Roles = "Coordinator")]
+        public async Task<Wrapper<List<StudentCourseHistoryDto>>> ListStudentCourses(
+            [FromRoute, NotEmptyGuid] Guid studentId, [FromQuery] StudentCourseHistoryQuery request)
+        {
+            var data = await service.ListStudentCourses(studentId, request);
+            return new Wrapper<List<StudentCourseHistoryDto>> { Data = data, Count = data.Count };
+        }
+
+        [HttpPost("apply")]
+        [Authorize(Roles = "Student")]
+        public async Task<Wrapper<RegistrationEntity>> Submit([FromBody] StudentRegistrationRequest request)
+        {
+            var data = await service.Submit(StudentId(), request);
+            return new Wrapper<RegistrationEntity> { Data = data };
+        }
+
+        [HttpPut("{id:guid}/decision")]
+        [Authorize(Roles = "Coordinator")]
+        public async Task<Wrapper<RegistrationEntity>> Decide([FromRoute, NotEmptyGuid] Guid id,
+            [FromBody] RegistrationDecisionRequest request)
+        {
+            var data = await service.Decide(id, request);
+            return new Wrapper<RegistrationEntity> { Data = data };
+        }
+
+        private Guid StudentId() => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id)
+            && id != Guid.Empty ? id : throw new UnauthorizedAccessException();
 
         [HttpPost]
         [Authorize(Roles = "Coordinator")]

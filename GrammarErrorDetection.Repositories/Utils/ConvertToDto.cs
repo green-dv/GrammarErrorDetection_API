@@ -1,11 +1,32 @@
 using System.Data;
 using GrammarErrorDetection.Models.Grammar.Users;
+using GrammarErrorDetection.Models.Grammar.Registrations;
 
 namespace GrammarErrorDetection.Repositories.Utils;
 
 /// <summary>Mapeos de resultados de consultas a DTO, separados de las entidades de tabla.</summary>
 public static class ConvertToDto
 {
+    public static RegistrationListItemDto RegistrationListToDto(DataRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        return new RegistrationListItemDto
+        {
+            RegistrationId = row.Field<Guid>("RegistrationId"),
+            UserId = row.Field<Guid>("UserId"),
+            ClassId = row.Field<Guid?>("ClassId"),
+            FirstName = row.Field<string>("FirstName") ?? throw new DataException("Falta FirstName en el listado de inscripciones."),
+            LastName = row.Field<string>("LastName") ?? throw new DataException("Falta LastName en el listado de inscripciones."),
+            CI = row.Field<string>("CI") ?? throw new DataException("Falta CI en el listado de inscripciones."),
+            Phone = row.Field<string?>("Phone"),
+            ModuleName = row.Field<string?>("ModuleName"),
+            ModuleId = row.Field<Guid?>("ModuleId"),
+            RegistrationDate = ReadDate(row, "RegistrationDate"),
+            Status = row.Field<string>("Status") ?? throw new DataException("Falta Status en el listado de inscripciones."),
+            UpdatedAt = ReadDate(row, "UpdatedAt") ?? throw new DataException("Falta UpdatedAt en el listado de inscripciones.")
+        };
+    }
+
     /// <summary>Construye un curso opcional desde las columnas Current* o Last* del SP.</summary>
     public static CourseSummaryDto? CourseSummaryToDto(DataRow row, string prefix)
     {

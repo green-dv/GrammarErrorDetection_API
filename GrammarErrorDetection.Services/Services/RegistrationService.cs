@@ -9,6 +9,10 @@ namespace GrammarErrorDetection.Services.Services
     {
         private readonly IRegistrationRepository repository;
         private readonly RegistrationGenerationRunner generation;
+        private readonly IClassRepository classes;
+        private readonly IClassroomRepository classrooms;
+        private readonly IModuleNameRepository modules;
+        private readonly IEvaluationRepository evaluations;
 
         public RegistrationService(IRegistrationRepository repository, IClassRepository classes,
             IClassroomRepository classrooms, IModuleNameRepository modules, IEvaluationRepository evaluations)
@@ -19,17 +23,30 @@ namespace GrammarErrorDetection.Services.Services
             ArgumentNullException.ThrowIfNull(modules);
             ArgumentNullException.ThrowIfNull(evaluations);
             this.repository = repository;
+            this.classes = classes;
+            this.classrooms = classrooms;
+            this.modules = modules;
+            this.evaluations = evaluations;
             generation = new RegistrationGenerationRunner(repository, classes, classrooms, modules, evaluations);
         }
 
-        public Task<List<RegistrationEntity>> List(PaginationDto<RegistrationList> request)
-            => repository.List(request);
+        public Task<List<RegistrationListItemDto>> List(PaginationDto<RegistrationSummaryList> request)
+            => repository.ListSummary(request);
 
         public Task<RegistrationEntity> Insert(RegistrationInsert request)
-            => repository.Insert(request);
+        {
+            ArgumentNullException.ThrowIfNull(request);
+            if (IsStatus(request.Status, "Rejected")) request.Active = false;
+            return repository.Insert(request);
+        }
 
-        public Task<RegistrationEntity> Update(RegistrationUpdate request)
-            => repository.Update(request);
+        public async Task<RegistrationEntity> Update(RegistrationUpdate request)
+        {
+            ArgumentNullException.ThrowIfNull(request);
+            var current = await FindRegistration(request.Id);
+            if (IsStatus(request.Status ?? current.Status, "Rejected")) request.Active = false;
+            return await repository.Update(request);
+        }
     }
 }
 
