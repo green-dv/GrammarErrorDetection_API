@@ -48,7 +48,7 @@ namespace GrammarErrorDetection.Repositories.Repositories
                 StoredProcedureResult.Cursor("Results"));
 
             using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
-            return table.AsEnumerable().Select(ConvertToEntity.ClassToEntity).ToList();
+            return table.AsEnumerable().Select(ConvertToEntity.ClassListToEntity).ToList();
         }
 
         public async Task<ClassEntity> Insert(ClassInsert request)

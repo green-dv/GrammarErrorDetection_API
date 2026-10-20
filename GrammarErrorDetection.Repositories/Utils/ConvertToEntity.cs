@@ -46,7 +46,7 @@ namespace GrammarErrorDetection.Repositories.Utils
                 Id = (Guid)row["Id"],
                 Name = (string)row["Name"],
                 Level = (int)row["Level"],
-                NextModuleId = row.Field<Guid?>("NextModuleId"),
+                NextModule = row.Field<Guid?>("NextModule"),
                 Active = (bool)row["Active"]
             };
         }
@@ -71,9 +71,23 @@ namespace GrammarErrorDetection.Repositories.Utils
         }
 
         /// <summary>
-        /// Convierte una fila con las columnas de grammar."Class" a su entidad.
+        /// Convierte el cursor enriquecido de Class_List a su entidad.
         /// </summary>
         /// <param name="row">Fila con las columnas de la entidad, incluidos sus campos anulables.</param>
+        public static ClassEntity ClassListToEntity(DataRow row)
+        {
+            var entity = ClassToEntity(row);
+            entity.TeacherName = row.Field<string?>("TeacherName");
+            entity.ModuleName = row.Field<string?>("ModuleName");
+            entity.ModuleLevel = row.IsNull("ModuleLevel") ? null : Convert.ToInt32(row["ModuleLevel"]);
+            entity.ClassroomName = row.Field<string?>("ClassroomName");
+            entity.ClassroomCapacity = row.IsNull("ClassroomCapacity") ? null : Convert.ToInt32(row["ClassroomCapacity"]);
+            entity.StudentCount = row.IsNull("StudentCount") ? null : Convert.ToInt64(row["StudentCount"]);
+            entity.Exam1Average = row.IsNull("Exam1Average") ? null : Convert.ToDecimal(row["Exam1Average"]);
+            entity.Exam2Average = row.IsNull("Exam2Average") ? null : Convert.ToDecimal(row["Exam2Average"]);
+            return entity;
+        }
+
         public static ClassEntity ClassToEntity(DataRow row)
         {
             ArgumentNullException.ThrowIfNull(row);

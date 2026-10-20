@@ -14,7 +14,7 @@ namespace GrammarErrorDetection.Models.Grammar.ModuleNames
         public int? Level { get; set; }
 
         [NotEmptyGuid]
-        public Guid? NextModuleId { get; set; }
+        public Guid? NextModule { get; set; }
 
         // Null conserva el valor actual, como los demás campos del Update.
         public bool ClearNextModule { get; set; }
@@ -23,11 +23,11 @@ namespace GrammarErrorDetection.Models.Grammar.ModuleNames
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
-            if (NextModuleId == Id)
-                yield return new ValidationResult("El siguiente módulo debe ser diferente al actual.", [nameof(NextModuleId)]);
-            if (ClearNextModule && NextModuleId.HasValue)
+            if (NextModule == Id)
+                yield return new ValidationResult("El siguiente módulo debe ser diferente al actual.", [nameof(NextModule)]);
+            if (ClearNextModule && NextModule.HasValue)
                 yield return new ValidationResult("No se puede asignar y quitar el siguiente módulo a la vez.",
-                    [nameof(NextModuleId), nameof(ClearNextModule)]);
+                    [nameof(NextModule), nameof(ClearNextModule)]);
         }
     }
 }
