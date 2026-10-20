@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using GrammarErrorDetection.Infrastructure.Database;
 using GrammarErrorDetection.Infrastructure.Interfaces;
 using GrammarErrorDetection.Models.APIRequest;
@@ -38,12 +38,14 @@ namespace GrammarErrorDetection.Repositories.Repositories
                     new("Active", NpgsqlDbType.Boolean, filter.Active),
                     new("PageNumber", NpgsqlDbType.Integer, request.PageNumber),
                     new("PageSize", NpgsqlDbType.Integer, request.PageSize),
-                    new("Users", NpgsqlDbType.Refcursor, "repository_list", ParameterDirection.InputOutput)
+                    new("Users", NpgsqlDbType.Refcursor, "repository_list", ParameterDirection.InputOutput),
+                    new("CurrentModuleNameId", NpgsqlDbType.Uuid, filter.CurrentModuleNameId),
+                    new("ClassId", NpgsqlDbType.Uuid, filter.ClassId)
                 ],
                 StoredProcedureResult.Cursor("Users"));
 
             using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
-            return table.AsEnumerable().Select(ConvertToEntity.UserToEntity).ToList();
+            return table.AsEnumerable().Select(ConvertToDto.UserListToEntity).ToList();
         }
 
         public async Task<UserEntity> Insert(UserInsert request)

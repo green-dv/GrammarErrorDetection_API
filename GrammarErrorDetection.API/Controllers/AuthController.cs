@@ -33,17 +33,17 @@ namespace GrammarErrorDetection.API.Controllers
 
         [AllowAnonymous]
         [HttpPost("Login")]
-        public async Task<Wrapper<AuthChallengeResponse>> Login([FromBody] LoginRequest request)
+        public async Task<Wrapper<LoginOptionsResponse>> Login([FromBody] LoginRequest request)
         {
             try
             {
                 var data = await service.LoginAsync(request);
-                return new Wrapper<AuthChallengeResponse> { Data = data };
+                return new Wrapper<LoginOptionsResponse> { Data = data };
             }
             catch (UnauthorizedAccessException)
             {
                 Response.StatusCode = StatusCodes.Status401Unauthorized;
-                return new Wrapper<AuthChallengeResponse>
+                return new Wrapper<LoginOptionsResponse>
                 {
                     Error = new APIError
                     {
@@ -55,10 +55,10 @@ namespace GrammarErrorDetection.API.Controllers
         }
 
         [AllowAnonymous]
-        [HttpPost("Signup/SendCode")]
-        public async Task<Wrapper<AuthChallengeResponse>> SendSignupCode([FromBody] SignupRequest request)
+        [HttpPost("SendCode")]
+        public async Task<Wrapper<AuthChallengeResponse>> SendCode([FromBody] SendVerificationCodeRequest request)
         {
-            var data = await service.SendSignupVerificationCodeAsync(request);
+            var data = await service.SendVerificationCodeAsync(request);
             return new Wrapper<AuthChallengeResponse> { Data = data };
         }
 
@@ -67,6 +67,14 @@ namespace GrammarErrorDetection.API.Controllers
         public async Task<Wrapper<LoginResponse>> VerifyLogin([FromBody] VerifyMfaRequest request)
         {
             var data = await service.VerifyMfaLoginAsync(request);
+            return new Wrapper<LoginResponse> { Data = data };
+        }
+
+        [AllowAnonymous]
+        [HttpPost("Login/VerifyTotp")]
+        public async Task<Wrapper<LoginResponse>> VerifyTotpLogin([FromBody] VerifyTotpLoginRequest request)
+        {
+            var data = await service.VerifyTotpLoginAsync(request);
             return new Wrapper<LoginResponse> { Data = data };
         }
 

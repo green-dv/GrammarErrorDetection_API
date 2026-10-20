@@ -45,6 +45,17 @@ if (File.Exists(envPath))
 
 var builder = WebApplication.CreateBuilder(args);
 
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("LocalDevelopment", policy => policy
+            .WithOrigins("http://localhost:7178", "https://localhost:7178")
+            .AllowAnyHeader()
+            .AllowAnyMethod());
+    });
+}
+
 var jwtOptions = JwtOptions.FromConfiguration(builder.Configuration);
 builder.Services.AddSingleton(jwtOptions);
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -116,11 +127,21 @@ builder.Services.AddSingleton<NpgsqlDataSource>(provider =>
 
 builder.Services.AddScoped<IStoredProcedureExecutor, StoredProcedureExecutor>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IModuleNameRepository, ModuleNameRepository>();
+builder.Services.AddScoped<IClassroomRepository, ClassroomRepository>();
+builder.Services.AddScoped<IClassRepository, ClassRepository>();
+builder.Services.AddScoped<IRegistrationRepository, RegistrationRepository>();
+builder.Services.AddScoped<IEvaluationRepository, EvaluationRepository>();
 builder.Services.AddScoped<IVerificationCodeRepository, VerificationCodeRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IEmailRepository, EmailRepository>();
 builder.Services.AddScoped<IAuthChallengeRepository, AuthChallengeRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IModuleNameService, ModuleNameService>();
+builder.Services.AddScoped<IClassroomService, ClassroomService>();
+builder.Services.AddScoped<IClassService, ClassService>();
+builder.Services.AddScoped<IRegistrationService, RegistrationService>();
+builder.Services.AddScoped<IEvaluationService, EvaluationService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IVerificationCodeService, VerificationCodeService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
@@ -166,6 +187,12 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseRouting();
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors("LocalDevelopment");
+}
 
 app.UseAuthentication();
 app.UseAuthorization();

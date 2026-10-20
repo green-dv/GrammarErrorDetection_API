@@ -29,39 +29,40 @@ namespace GrammarErrorDetection.Services.Services
         private readonly IEmailRepository emailRepository;
         private readonly TimeProvider clock;
         private const int MaxAttempts = 5;
-        public AuthService(IUserRepository userRepository, JwtOptions jwtOptions, IRoleRepository roleRepository,
-            IVerificationCodeService verificationCodeService, IAuthChallengeRepository challengeRepository,
-            IEmailRepository emailRepository, TimeProvider clock)
+        public AuthService(IUserRepository userRepository, JwtOptions jwtOptions, IRoleRepository roleRepository, IVerificationCodeService verificationCodeService, IAuthChallengeRepository challengeRepository, IEmailRepository emailRepository, TimeProvider clock)
         {
-            ArgumentNullException.ThrowIfNull(userRepository);
-            ArgumentNullException.ThrowIfNull(jwtOptions);
-            ArgumentNullException.ThrowIfNull(roleRepository);
             this.userRepository = userRepository;
             this.jwtOptions = jwtOptions;
             this.roleRepository = roleRepository;
-            this.verificationCodeService = verificationCodeService ?? throw new ArgumentNullException(nameof(verificationCodeService));
-            this.challengeRepository = challengeRepository ?? throw new ArgumentNullException(nameof(challengeRepository));
-            this.emailRepository = emailRepository ?? throw new ArgumentNullException(nameof(emailRepository));
-            this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            this.verificationCodeService = verificationCodeService;
+            this.challengeRepository = challengeRepository;
+            this.emailRepository = emailRepository;
+            this.clock = clock;
         }
-        public async Task<AuthChallengeResponse> LoginAsync(LoginRequest request)
+        public async Task<LoginOptionsResponse> LoginAsync(LoginRequest request)
         {
             ArgumentNullException.ThrowIfNull(request);
             Validator.ValidateObject(request, new ValidationContext(request), validateAllProperties: true);
 
             var user = await ValidateCredentialsAsync(request.Email.Trim(), request.Password);
-            if (user.IsTotpEnabled && string.IsNullOrWhiteSpace(user.TotpSecret))
-                throw new InvalidOperationException("El usuario tiene TOTP habilitado sin un secreto configurado.");
-
-            return await CreateChallengeAsync(user.Email, $"{user.FirstName} {user.LastName}",
-                user.IsTotpEnabled ? "login_totp" : "login_email", user.Id);
+            return new LoginOptionsResponse { Email = user.Email, IsTotpEnabled = user.IsTotpEnabled };
         }
 
-        public async Task<AuthChallengeResponse> SendSignupVerificationCodeAsync(SignupRequest request)
+        public async Task<AuthChallengeResponse> SendVerificationCodeAsync(SendVerificationCodeRequest request)
         {
-            ValidateSignup(request);
-            await EnsureSignupAvailableAsync(request);
-            return await CreateChallengeAsync(request.Email.Trim(), $"{request.FirstName} {request.LastName}", "signup_email", null);
+            Validate(request);
+            var email = request.Email.Trim();
+            if (request.Purpose == "login")
+            {
+                Validate(new LoginRequest { Email = email, Password = request.Password ?? string.Empty });
+                var user = await ValidateCredentialsAsync(email, request.Password!);
+                return await CreateEmailChallengeAsync(user.Email, $"{user.FirstName} {user.LastName}", "login_email", user.Id);
+            }
+
+            var existing = await FindMatchingUserAsync(new UserList { Email = email }, user => SameEmail(user.Email, email));
+            if (existing is not null)
+                throw new AuthConflictException("El correo ya está registrado.");
+            return await CreateEmailChallengeAsync(email, email, "signup_email", null);
         }
 
         public async Task<LoginResponse> SignupAsync(SignupConfirmationRequest request)
@@ -102,24 +103,33 @@ namespace GrammarErrorDetection.Services.Services
         public async Task<LoginResponse> VerifyMfaLoginAsync(VerifyMfaRequest request)
         {
             Validate(request);
-            var challenge = await GetAttemptAsync(request.ChallengeId, ["login_email", "login_totp"]);
+            var challenge = await GetAttemptAsync(request.ChallengeId, ["login_email"]);
             var user = await FindUserAsync(challenge.Email ?? "");
             if (user is null || user.Id != challenge.UserId || !user.Active)
                 throw InvalidCode();
 
-            string? matchedStep = null;
-            if (challenge.Purpose == "login_totp")
-            {
-                if (!user.IsTotpEnabled || string.IsNullOrWhiteSpace(user.TotpSecret)
-                    || !VerifyTotp(user.TotpSecret, request.Code, out var step))
-                    throw InvalidCode();
-                matchedStep = "totp:" + step.ToString(CultureInfo.InvariantCulture);
-            }
-            else if (user.IsTotpEnabled || !VerifyHash(request.Code, challenge.CodeHash))
-            {
+            if (!VerifyHash(request.Code, challenge.CodeHash))
                 throw InvalidCode();
-            }
 
+            await ConsumeAsync(challenge.Id);
+            return await CreateLoginResponseAsync(user);
+        }
+
+        public async Task<LoginResponse> VerifyTotpLoginAsync(VerifyTotpLoginRequest request)
+        {
+            Validate(request);
+            var user = await ValidateCredentialsAsync(request.Email.Trim(), request.Password);
+            if (!user.IsTotpEnabled || string.IsNullOrWhiteSpace(user.TotpSecret)
+                || !VerifyTotp(user.TotpSecret, request.Code, out var step))
+                throw InvalidCode();
+
+            // Registro interno para impedir reutilizar el mismo paso TOTP entre logins.
+            var matchedStep = "totp:" + step.ToString(CultureInfo.InvariantCulture);
+            var challenge = await verificationCodeService.Insert(new VerificationCodeInsert
+            {
+                UserId = user.Id, Email = user.Email, Purpose = "login_totp",
+                CodeHash = matchedStep, AttemptCount = 0, Active = true
+            });
             await ConsumeAsync(challenge.Id, matchedStep);
             return await CreateLoginResponseAsync(user);
         }
@@ -153,7 +163,7 @@ namespace GrammarErrorDetection.Services.Services
                 throw InvalidCode();
         }
 
-        private async Task<AuthChallengeResponse> CreateChallengeAsync(string email, string name, string purpose, Guid? userId)
+        private async Task<AuthChallengeResponse> CreateEmailChallengeAsync(string email, string name, string purpose, Guid? userId)
         {
             var code = RandomNumberGenerator.GetInt32(100000, 1000000).ToString(CultureInfo.InvariantCulture);
             var challenge = await verificationCodeService.Insert(new VerificationCodeInsert
@@ -161,23 +171,19 @@ namespace GrammarErrorDetection.Services.Services
                 UserId = userId, Email = email, Purpose = purpose,
                 CodeHash = BCrypt.Net.BCrypt.HashPassword(code), AttemptCount = 0, Active = true
             });
-            if (purpose != "login_totp")
+            try
             {
-                try
-                {
-                    await emailRepository.SendVerificationEmailAsync(name, email,
-                        $"tu código de verificación es: {code}", "Código de verificación");
-                }
-                catch
-                {
-                    await verificationCodeService.Update(new VerificationCodeUpdate { Id = challenge.Id, Active = false });
-                    throw;
-                }
+                await emailRepository.SendVerificationEmailAsync(name, email, $"tu código de verificación es: {code}", "Código de verificación");
+            }
+            catch
+            {
+                await verificationCodeService.Update(new VerificationCodeUpdate { Id = challenge.Id, Active = false });
+                throw;
             }
             return new AuthChallengeResponse
             {
                 ChallengeId = challenge.Id, Email = email,
-                Method = purpose == "login_totp" ? "totp" : "email",
+                Method = "email",
                 ExpiresAt = ToResponseTime(challenge.ExpirationTime)
             };
         }
@@ -217,26 +223,33 @@ namespace GrammarErrorDetection.Services.Services
 
         private async Task EnsureSignupAvailableAsync(SignupRequest request)
         {
-            var byEmail = await userRepository.List(new PaginationDto<UserList>
-            {
-                PageNumber = 1, PageSize = 1, Filter = new UserList { Email = request.Email.Trim() }
-            });
-            var byCi = await userRepository.List(new PaginationDto<UserList>
-            {
-                PageNumber = 1, PageSize = 1, Filter = new UserList { CI = request.CI.Trim() }
-            });
-            if (byEmail.Any(user => SameEmail(user.Email, request.Email.Trim()))
-                || byCi.Any(user => user.CI == request.CI.Trim()))
+            var email = request.Email.Trim();
+            var ci = request.CI.Trim();
+            var byEmail = await FindMatchingUserAsync(new UserList { Email = email }, user => SameEmail(user.Email, email));
+            var byCi = await FindMatchingUserAsync(new UserList { CI = ci }, user => user.CI == ci);
+            if (byEmail is not null || byCi is not null)
                 throw new AuthConflictException("El correo o la cédula de identidad ya están registrados.");
         }
 
-        private async Task<UserEntity?> FindUserAsync(string email)
+        private Task<UserEntity?> FindUserAsync(string email)
+            => FindMatchingUserAsync(new UserList { Email = email, Active = true },
+                user => user.Active && SameEmail(user.Email, email));
+
+        private async Task<UserEntity?> FindMatchingUserAsync(UserList filter, Func<UserEntity, bool> matches)
         {
-            var users = await userRepository.List(new PaginationDto<UserList>
+            // User_List aplica ILIKE parcial; la coincidencia exacta puede estar en otra página.
+            for (var page = 1; ; page++)
             {
-                PageNumber = 1, PageSize = 1, Filter = new UserList { Email = email, Active = true }
-            });
-            return users.SingleOrDefault(user => SameEmail(user.Email, email));
+                var users = await userRepository.List(new PaginationDto<UserList>
+                {
+                    PageNumber = page, PageSize = 100, Filter = filter
+                });
+                var user = users.SingleOrDefault(matches);
+                if (user is not null)
+                    return user;
+                if (users.Count < 100)
+                    return null;
+            }
         }
 
         private async Task<UserEntity> GetAuthenticatedUserAsync(Guid id, string email)
@@ -308,14 +321,7 @@ namespace GrammarErrorDetection.Services.Services
 
         private async Task<UserEntity> ValidateCredentialsAsync(string email, string password)
         {
-            var users = await userRepository.List(new PaginationDto<UserList>
-            {
-                PageNumber = 1,
-                PageSize = 1,
-                Filter = new UserList { Email = email, Active = true }
-            });
-
-            var user = users.SingleOrDefault();
+            var user = await FindUserAsync(email);
             if (user is not null
                 && string.Equals(user.Email, email, StringComparison.OrdinalIgnoreCase)
                 && user.Active
