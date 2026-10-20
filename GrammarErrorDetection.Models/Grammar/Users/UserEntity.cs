@@ -31,5 +31,11 @@ namespace GrammarErrorDetection.Models.Grammar.Users
         public DateTime UpdatedAt { get; set; }
 
         public bool Active { get; set; } = true;
+
+        // Datos adicionales de User_List; no pertenecen al compuesto de Insert/Update.
+        public string RoleName { get; set; } = string.Empty;
+        public CurrentCourseDto? CurrentCourse { get; set; }
+        public decimal? CurrentCourseFinalScore { get; set; }
+        public CourseSummaryDto? LastCourse { get; set; }
     }
 }

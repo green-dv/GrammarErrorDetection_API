@@ -2,6 +2,7 @@
 [Bb]in/
 [Oo]bj/
 [Aa]rtifacts/
+/.artifacts/
 
 # Visual Studio
 .vs/
@@ -25,7 +26,10 @@ coverage/
 [Pp]rueba/
 [Pp]ruebas/
 
-[Ddocs]/
+# Carpetas locales de scripts, documentación y pruebas
+/database/
+/docs/
+/tests/
 
 # Logs
 *.log
