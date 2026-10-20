@@ -39,7 +39,7 @@ internal sealed class RegistrationGenerationRunner(
             SourceClasses = sourceClasses, TargetClasses = targetClasses,
             Classrooms = await All(classrooms.List, new ClassroomList { Active = true }),
             NextModules = currentModules.ToDictionary(m => m.Id,
-                m => m.NextModuleId is Guid next && next != m.Id && activeModuleIds.Contains(next)
+                m => m.NextModule is Guid next && next != m.Id && activeModuleIds.Contains(next)
                     ? (Guid?)next : null)
         };
         foreach (var course in sourceClasses.Concat(targetClasses).DistinctBy(c => c.Id))

@@ -31,7 +31,7 @@ namespace GrammarErrorDetection.Repositories.Repositories
                     new("Id", NpgsqlDbType.Uuid, filter.Id),
                     new("Name", NpgsqlDbType.Varchar, filter.Name),
                     new("Level", NpgsqlDbType.Integer, filter.Level),
-                    new("NextModuleId", NpgsqlDbType.Uuid, filter.NextModuleId),
+                    new("NextModule", NpgsqlDbType.Uuid, filter.NextModule),
                     new("Active", NpgsqlDbType.Boolean, filter.Active),
                     new("PageNumber", NpgsqlDbType.Integer, request.PageNumber),
                     new("PageSize", NpgsqlDbType.Integer, request.PageSize),
@@ -53,7 +53,7 @@ namespace GrammarErrorDetection.Repositories.Repositories
                 [
                     new("Name", NpgsqlDbType.Varchar, request.Name),
                     new("Level", NpgsqlDbType.Integer, request.Level),
-                    new("NextModuleId", NpgsqlDbType.Uuid, request.NextModuleId),
+                    new("NextModule", NpgsqlDbType.Uuid, request.NextModule),
                     new("Active", NpgsqlDbType.Boolean, request.Active),
                     new("ModuleName", NpgsqlDbType.Unknown, Direction: ParameterDirection.Output)
                 ],
@@ -77,7 +77,7 @@ namespace GrammarErrorDetection.Repositories.Repositories
                     new("Id", NpgsqlDbType.Uuid, request.Id),
                     new("Name", NpgsqlDbType.Varchar, request.Name),
                     new("Level", NpgsqlDbType.Integer, request.Level),
-                    new("NextModuleId", NpgsqlDbType.Uuid, request.NextModuleId),
+                    new("NextModule", NpgsqlDbType.Uuid, request.NextModule),
                     new("ClearNextModule", NpgsqlDbType.Boolean, request.ClearNextModule),
                     new("Active", NpgsqlDbType.Boolean, request.Active),
                     new("ModuleName", NpgsqlDbType.Unknown, Direction: ParameterDirection.Output)

@@ -1,6 +1,6 @@
 namespace GrammarErrorDetection.Models.Grammar.Users;
 
-public sealed class CourseSummaryDto
+public class CourseSummaryDto
 {
     public Guid ClassId { get; set; }
     public Guid ModuleNameId { get; set; }

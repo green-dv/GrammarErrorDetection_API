@@ -29,6 +29,16 @@ namespace GrammarErrorDetection.Models.Grammar.Classes
         public DateTime UpdatedAt { get; set; }
 
         public bool Active { get; set; } = true;
+
+        // Campos adicionales del cursor de Class_List.
+        public string? TeacherName { get; set; }
+        public string? ModuleName { get; set; }
+        public int? ModuleLevel { get; set; }
+        public string? ClassroomName { get; set; }
+        public int? ClassroomCapacity { get; set; }
+        public long? StudentCount { get; set; }
+        public decimal? Exam1Average { get; set; }
+        public decimal? Exam2Average { get; set; }
     }
 }
 

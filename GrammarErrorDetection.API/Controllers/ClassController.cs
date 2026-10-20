@@ -39,6 +39,31 @@ namespace GrammarErrorDetection.API.Controllers
             return new Wrapper<ClassEntity> { Data = data };
         }
 
+        [HttpGet("eligible-students")]
+        [Authorize(Roles = "Coordinator")]
+        public async Task<Wrapper<List<EligibleStudentDto>>> ListEligibleStudents([FromQuery] PaginationDto<EligibleStudentList> request)
+        {
+            var data = await service.ListEligibleStudents(request);
+            return new Wrapper<List<EligibleStudentDto>> { Data = data, Count = data.Count };
+        }
+
+        [HttpPost("with-students")]
+        [Authorize(Roles = "Coordinator")]
+        public async Task<Wrapper<ClassWithStudentsResult>> InsertWithStudents([FromBody] ClassWithStudentsInsert request)
+        {
+            var data = await service.InsertWithStudents(request);
+            Response.StatusCode = StatusCodes.Status201Created;
+            return new Wrapper<ClassWithStudentsResult> { Data = data };
+        }
+
+        [HttpPut("with-students")]
+        [Authorize(Roles = "Coordinator")]
+        public async Task<Wrapper<ClassWithStudentsResult>> UpdateWithStudents([FromBody] ClassWithStudentsUpdate request)
+        {
+            var data = await service.UpdateWithStudents(request);
+            return new Wrapper<ClassWithStudentsResult> { Data = data };
+        }
+
         [HttpPut]
         [Authorize(Roles = "Coordinator")]
         public async Task<Wrapper<ClassEntity>> Update([FromBody] ClassUpdate request)
