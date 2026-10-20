@@ -45,6 +45,17 @@ if (File.Exists(envPath))
 
 var builder = WebApplication.CreateBuilder(args);
 
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("LocalDevelopment", policy => policy
+            .WithOrigins("http://localhost:7178", "https://localhost:7178")
+            .AllowAnyHeader()
+            .AllowAnyMethod());
+    });
+}
+
 var jwtOptions = JwtOptions.FromConfiguration(builder.Configuration);
 builder.Services.AddSingleton(jwtOptions);
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -176,6 +187,12 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseRouting();
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors("LocalDevelopment");
+}
 
 app.UseAuthentication();
 app.UseAuthorization();

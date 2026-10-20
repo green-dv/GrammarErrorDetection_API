@@ -12,7 +12,7 @@ namespace GrammarErrorDetection.Models.Grammar.ModuleNames
         public int Level { get; set; }
 
         [NotEmptyGuid]
-        public Guid? NextModuleId { get; set; }
+        public Guid? NextModule { get; set; }
 
         public bool Active { get; set; } = true;
     }
