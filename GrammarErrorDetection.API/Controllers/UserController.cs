@@ -19,23 +19,15 @@ namespace GrammarErrorDetection.API.Controllers
             this.service = service;
         }
 
-        [HttpGet]
-        public async Task<Wrapper<List<UserEntity>>> List([FromQuery] PaginationDto<UserList> request)
+        [HttpPost("search")]
+        public async Task<Wrapper<List<UserListItemDto>>> List([FromBody] PaginationDto<UserList> request)
         {
             var data = await service.List(request);
-            return new Wrapper<List<UserEntity>>
+            return new Wrapper<List<UserListItemDto>>
             {
                 Data = data,
                 Count = data.Count
             };
-        }
-
-        [HttpGet("summary")]
-        [Authorize(Roles = "Coordinator")]
-        public async Task<Wrapper<List<UserSummaryDto>>> ListSummary([FromQuery] PaginationDto<UserSummaryList> request)
-        {
-            var data = await service.ListSummary(request);
-            return new Wrapper<List<UserSummaryDto>> { Data = data, Count = data.Count };
         }
 
         [HttpPost]

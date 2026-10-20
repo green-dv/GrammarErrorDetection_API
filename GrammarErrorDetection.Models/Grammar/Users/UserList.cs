@@ -25,6 +25,12 @@ namespace GrammarErrorDetection.Models.Grammar.Users
         [NotEmptyGuid]
         public Guid? RoleId { get; set; }
 
+        [NotEmptyGuid]
+        public Guid? CurrentModuleNameId { get; set; }
+
+        [NotEmptyGuid]
+        public Guid? ClassId { get; set; }
+
         public bool? Active { get; set; }
     }
 }

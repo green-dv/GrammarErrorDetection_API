@@ -1,4 +1,4 @@
-# GrammarErrorDetection.API
+﻿# GrammarErrorDetection.API
 
 Backend para un sistema de detección de errores gramaticales. Su propósito es ofrecer una API HTTP para recibir texto, coordinar su análisis y devolver los resultados mediante respuestas estructuradas.
 
@@ -117,7 +117,10 @@ Para detener la aplicación, presiona `Ctrl+C`.
 
 ## CRUD de usuarios, códigos de verificación y roles
 
-Los recursos `/api/User`, `/api/VerificationCode` y `/api/Role` admiten:
+Consulta [el flujo de autenticación](docs/authentication.md) para los contratos
+de login, envío de códigos compartido con signup y verificación por correo o TOTP.
+
+Los recursos `/api/VerificationCode` y `/api/Role` admiten:
 
 - `GET`: listado con `PageNumber`, `PageSize` y filtros mediante query string (por ejemplo, `/api/Role?PageNumber=1&PageSize=10&Filter.Name=Admin`).
 - `POST`: inserción con el modelo `Insert` correspondiente en el cuerpo JSON; devuelve HTTP 201.
@@ -130,9 +133,36 @@ con acceso para coordinadores. `ModuleName` incluye la relación opcional
 `NextModuleId`. Consulta [evaluaciones y siguiente módulo](docs/evaluations-next-module.md)
 para los contratos, ejemplos y el script PostgreSQL que debe aplicarse antes de usarlos.
 
-El listado administrativo `GET /api/User/summary` agrega curso actual, último curso
-y nota final del último curso. Consulta [el contrato de User_List_Summary](docs/user-summary.md)
-para los filtros, columnas del cursor y script SQL correspondiente.
+El listado `POST /api/User/search` recibe paginación y filtros en el cuerpo JSON e incluye el nombre del rol, curso actual, promedio
+actual, horario, docente, aula y último curso. El filtro `Filter.CurrentModuleNameId`
+selecciona estudiantes que cursan el módulo. Consulta [el contrato de User_List](docs/user-summary.md).
+El periodo actual se calcula en PostgreSQL con hora de Bolivia.
+`Filter.ClassId` permite consultar los estudiantes inscritos en un curso concreto
+mediante `POST /api/User/search`. Requiere ampliar `grammar."User_List"` con
+el parámetro opcional `ClassId uuid` después de `CurrentModuleNameId` y filtrar
+por inscripciones activas del curso antes de paginar. El contrato y el fragmento
+SQL están en [User_List](docs/user-summary.md); el cambio no se aplica a la BD automáticamente.
+La creación de usuarios sigue en `POST /api/User` y la actualización en `PUT /api/User`.
+
+`GET /api/Class` incluye nombres de docente, módulo y aula, nivel del módulo,
+capacidad del aula, cantidad de estudiantes y promedios de los dos exámenes.
+Consulta [el contrato de Class_List](docs/class-list.md).
+
+`PUT /api/Class/with-students` permite a `Coordinator` editar un curso y sincronizar
+sus estudiantes. Recibe los mismos datos completos de `POST /api/Class/with-students`,
+más `id`. `studentIds` es obligatorio y representa la lista final: conserva las
+inscripciones incluidas, agrega a los nuevos y desactiva las omitidas. Una lista
+vacía quita a todos; omitirla o enviar null se rechaza. La respuesta incluye el
+curso, las asignaciones finales y `removedRegistrationIds`. No permite cambiar
+módulo, año o bimestre mientras existan inscripciones activas. Reutiliza los CRUD
+existentes, sin una transacción global. Consulta [asignación manual](docs/manual-class-assignment.md).
+
+`GET /api/Class/eligible-students` admite `Filter.ClassId` opcional para consultar
+desde la edición de un curso. Si todas sus inscripciones activas que reservan cupo
+tienen los dos exámenes completos y válidos, devuelve una lista vacía. El curso debe
+coincidir con el módulo, año y bimestre del filtro. Sin `ClassId` se conserva la
+búsqueda para crear cursos. Un curso vacío o con notas pendientes no se considera
+terminado. Esta validación del listado no bloquea por sí sola las actualizaciones.
 
 Configura la conexión PostgreSQL mediante `ConnectionStrings:Grammar` en la configuración de ASP.NET Core o la variable de entorno `ConnectionStrings__Grammar`, por ejemplo:
 

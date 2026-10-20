@@ -28,24 +28,54 @@ public static class ConvertToDto
         };
     }
 
-    /// <summary>Mapeo especial de la fila plana de User_List_Summary a sus DTO anidados.</summary>
-    public static UserSummaryDto UserSummaryToDto(DataRow row)
+    /// <summary>Mapea User_List conservando credenciales para los consumidores internos.</summary>
+    public static UserEntity UserListToEntity(DataRow row)
     {
         ArgumentNullException.ThrowIfNull(row);
+        var user = ConvertToEntity.UserToEntity(row);
+        user.RoleName = row.Field<string>("RoleName")
+            ?? throw new DataException("El listado de usuarios no contiene el nombre del rol.");
         var current = CourseSummaryToDto(row, "Current");
-        var last = CourseSummaryToDto(row, "Last");
-        return new UserSummaryDto
+        if (current is not null)
         {
-            Id = row.Field<Guid>("Id"),
-            FirstName = row.Field<string>("FirstName") ?? string.Empty,
-            LastName = row.Field<string>("LastName") ?? string.Empty,
-            Email = row.Field<string>("Email") ?? string.Empty,
-            CI = row.Field<string>("CI") ?? string.Empty,
-            Phone = row.Field<string?>("Phone"),
-            IsEnrolled = row.Field<bool>("IsEnrolled"),
-            CurrentCourse = current,
-            LastCourse = last,
-            LastCourseFinalScore = last is null ? null : row.Field<decimal?>("LastCourseFinalScore")
-        };
+            user.CurrentCourse = new CurrentCourseDto
+            {
+                ClassId = current.ClassId, ModuleNameId = current.ModuleNameId,
+                ModuleName = current.ModuleName, Year = current.Year, Bimester = current.Bimester,
+                Parallel = current.Parallel, RegistrationStatus = current.RegistrationStatus,
+                TeacherId = row.Field<Guid>("CurrentTeacherId"),
+                TeacherName = row.Field<string>("CurrentTeacherName")
+                    ?? throw new DataException("El curso actual no contiene el nombre del docente."),
+                ClassroomId = row.Field<Guid>("CurrentClassroomId"),
+                ClassroomName = row.Field<string>("CurrentClassroomName")
+                    ?? throw new DataException("El curso actual no contiene el nombre del aula."),
+                ClassroomCapacity = row.Field<int>("CurrentClassroomCapacity"),
+                StartDate = ReadDate(row, "CurrentStartDate"),
+                EndDate = ReadDate(row, "CurrentEndDate"),
+                StartTime = ReadTime(row, "CurrentStartTime"),
+                EndTime = ReadTime(row, "CurrentEndTime"),
+                RegistrationId = row.Field<Guid>("CurrentRegistrationId"),
+                RegistrationDate = ReadDate(row, "CurrentRegistrationDate")
+            };
+        }
+        user.CurrentCourseFinalScore = current is null ? null : row.Field<decimal?>("CurrentCourseFinalScore");
+        user.LastCourse = CourseSummaryToDto(row, "Last");
+        return user;
     }
+
+    private static DateTime? ReadDate(DataRow row, string column) => row[column] switch
+    {
+        DBNull => null,
+        DateTime value => value,
+        DateOnly value => value.ToDateTime(TimeOnly.MinValue),
+        _ => throw new DataException($"La columna {column} no contiene una fecha válida.")
+    };
+
+    private static TimeOnly? ReadTime(DataRow row, string column) => row[column] switch
+    {
+        DBNull => null,
+        TimeOnly value => value,
+        TimeSpan value => TimeOnly.FromTimeSpan(value),
+        _ => throw new DataException($"La columna {column} no contiene una hora válida.")
+    };
 }

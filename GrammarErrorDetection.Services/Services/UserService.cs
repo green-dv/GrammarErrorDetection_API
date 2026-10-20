@@ -18,11 +18,21 @@ namespace GrammarErrorDetection.Services.Services
             this.repository = repository;
         }
 
-        public Task<List<UserEntity>> List(PaginationDto<UserList> request)
-            => repository.List(request);
-
-        public Task<List<UserSummaryDto>> ListSummary(PaginationDto<UserSummaryList> request)
-            => repository.ListSummary(request);
+        public async Task<List<UserListItemDto>> List(PaginationDto<UserList> request)
+        {
+            var users = await repository.List(request);
+            return users.Select(user => new UserListItemDto
+            {
+                Id = user.Id, FirstName = user.FirstName, LastName = user.LastName,
+                CI = user.CI, Email = user.Email, Phone = user.Phone,
+                RoleId = user.RoleId, RoleName = user.RoleName,
+                HasAuthenticator = user.HasAuthenticator, IsTotpEnabled = user.IsTotpEnabled,
+                ChangePassword = user.ChangePassword, CreatedAt = user.CreatedAt,
+                UpdatedAt = user.UpdatedAt, Active = user.Active,
+                CurrentCourse = user.CurrentCourse, CurrentCourseFinalScore = user.CurrentCourseFinalScore,
+                LastCourse = user.LastCourse
+            }).ToList();
+        }
 
         public Task<UserEntity> Insert(UserInsert request)
             => repository.Insert(request);
