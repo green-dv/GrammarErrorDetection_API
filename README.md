@@ -277,6 +277,97 @@ Configura la conexión PostgreSQL mediante `ConnectionStrings:Grammar` en la con
 $env:ConnectionStrings__Grammar = 'Host=localhost;Port=5432;Database=grammar;Username=postgres;Password=tu-clave'
 ```
 
+## Repository de textos
+
+### Carga y análisis de un párrafo
+
+`GET /api/Text?PageNumber=1&PageSize=20` lista párrafos con sus oraciones,
+errores y conteos mediante `Text_Detail_List`. Recibe los filtros opcionales
+`Filter.Id`, `Filter.UserId`, `Filter.SubmissionDate` (YYYY-MM-DD),
+`Filter.OriginalContent`, `Filter.Status`, `Filter.Active` y `Filter.CreatedAt`
+(YYYY-MM-DD). No recibe un cuerpo JSON. Teacher y Coordinator pueden consultar
+el listado general o filtrar por estudiante; los demás usuarios autenticados
+solo pueden consultar sus propios textos, aunque envíen otro Filter.UserId.
+Devuelve HTTP 200 con `Wrapper<List<TextListItemDto>>`; count es la cantidad
+de elementos de la página. PageNumber y PageSize deben ser mayores a cero.
+
+`POST /api/Text/upload` requiere un JWT de usuario autenticado. Recibe:
+
+```json
+{
+  "originalContent": "She go home. Hello!"
+}
+```
+
+El usuario se obtiene de `ClaimTypes.NameIdentifier`, no del cuerpo. Devuelve
+HTTP 201 con `Wrapper<TextListItemDto>`: texto procesado, oraciones, errores,
+categorías, tokens, sugerencias, precisiones y conteos `errorCount`.
+
+`TextService` divide por puntos, conserva el punto de cada oración, elimina
+segmentos vacíos e incluye la última oración aunque no termine en punto.
+No aplica segmentación lingüística especial a abreviaturas o números decimales.
+Envía una sola petición POST con un array `sentence_id`/`text` a NLP.
+Cada ID es un correlador temporal; los IDs persistidos son los devueltos por los SPs.
+Se valida que NLP devuelva exactamente un resultado por cada ID, aunque cambie el orden.
+
+La URL por defecto es `https://localhost:8443/api/analyze`, configurable mediante
+`NLP_API_URL` o `Nlp:Endpoint`; el timeout HTTP es de 60 segundos y se mantiene la
+validación TLS normal. El cliente usa los nombres snake_case del contrato NLP.
+Resuelve categorías activas mediante `ErrorClassification_List` y comprueba el
+nombre exacto ignorando mayúsculas y espacios externos, porque el SP usa ILIKE.
+
+Los offsets de error se interpretan como posiciones Unicode con fin exclusivo,
+relativas al texto de la oración enviado a NLP. Se extrae `ErrorToken` de esa
+oración y se conserva `SuggestedCorrection`. Si las sugerencias están presentes
+y no se superponen, se construye `CorrectedSentence`; en otros casos queda null.
+Una oración sin errores también tiene `CorrectedSentence=null` y `errorCount=0`.
+
+Antes de escribir se validan todos los resultados, offsets, categorías y límites
+de los DTOs de persistencia. Luego se ejecutan `Text_Insert` (estado Procesando),
+`Sentence_Insert`, `SentenceError_Insert` y `Text_Update` (estado Procesado).
+Ningún fallo de NLP provoca inserciones. Los SPs confirman individualmente;
+si falla el guardado después de crear el texto, se intenta marcarlo como Error
+y se propaga el fallo. Los datos ya insertados no se deshacen automáticamente.
+
+Los errores HTTP/JSON de NLP se manejan como errores del servicio externo.
+Cuando NLP devuelve `detail` de validación, se retorna HTTP 502 con el formato
+Wrapper habitual y `error.errorDetails` contiene un JSON serializado con
+`upstreamStatusCode` y `detail` (incluidos `loc`, `msg` y `type`). Un timeout devuelve
+HTTP 504. El contenido vacío o sin oraciones devuelve HTTP 400.
+
+`ISentenceRepository.Insert(SentenceInsert)` y
+`ISentenceErrorRepository.Insert(SentenceErrorInsert)` están registrados en DI.
+Ejecutan únicamente `grammar.Sentence_Insert` y `grammar.SentenceError_Insert`,
+respectivamente, y devuelven `SentenceEntity` y `SentenceErrorEntity` desde los
+parámetros OUT compuestos. Conservan valores opcionales null, `Active=false`
+y `ConfidenceScore` como decimal. Por ahora solo implementan inserción.
+
+`ITextRepository` está registrado en inyección de dependencias con `TextRepository`.
+Utiliza únicamente los SPs existentes `grammar.Text_Detail_List`, `grammar.Text_Insert`
+y `grammar.Text_Update`, con las firmas proporcionadas; no instala ni modifica SQL.
+
+- `TextList` es exclusivamente el filtro: `Id`, `UserId`, `SubmissionDate`,
+  `OriginalContent`, `Status`, `Active` y `CreatedAt`, todos opcionales.
+- `List(PaginationDto<TextList>)` devuelve `List<TextListItemDto>`, con los campos
+  de `TextEntity` y `Sentences` (`List<SentenceErrorDto>`). Cada oración
+  incluye ID, TextId, índice, texto original, texto corregido y `Errors`, una lista
+  de `SentenceErrorDetailDto` con `ErrorClassificationName`, token, índices y precisión,
+  además de los identificadores y metadatos presentes en el JSON.
+  El mapper lee `t.*` y la columna `Sentences` JSON/JSONB de `Text_Detail_List`,
+  sin exigir una columna User. Un valor SQL nulo se proyecta como `[]`.
+- `TextListItemDto.ErrorCount` suma los errores de todas sus oraciones. Cada texto
+  se considera un párrafo; el SP no identifica subdivisiones de párrafo dentro de
+  un mismo texto. `SentenceErrorDto.ErrorCount` cuenta los errores de esa oración.
+  Ambos son propiedades calculadas, se serializan como `errorCount` y devuelven cero
+  si no hay errores. Se cuentan ocurrencias, aunque varias tengan la misma categoría.
+- `Insert(TextInsert)` y `Update(TextUpdate)` devuelven `TextEntity` desde el
+  parámetro OUT `Text`. No requieren las columnas adicionales del listado.
+- Insert exige un `UserId` no vacío y contenido, con `Status="Pendiente"` y
+  `Active=true` por defecto; la fecha de envío es opcional. Update exige `Id`
+  y permite omitir los demás campos. Los omitidos se envían como NULL al SP.
+- `Active` forma parte de la entidad y de los modelos de escritura. Los filtros
+  de fecha usan DATE; las fechas de escritura se normalizan a TIMESTAMP sin zona.
+
 ## Compilar la solución
 
 ```powershell

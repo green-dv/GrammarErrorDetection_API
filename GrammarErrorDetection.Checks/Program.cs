@@ -93,6 +93,11 @@ Console.WriteLine($"{checks} comprobaciones de inscripciones correctas.");
 await RegistrationListingChecks.Run();
 await CourseHistoryChecks.Run();
 await EvaluationUserChecks.Run();
+await TextRepositoryChecks.Run();
+await SentenceRepositoryChecks.Run();
+await NlpServiceChecks.Run();
+await TextUploadChecks.Run();
+await ErrorClassificationChecks.Run();
 
 ClassEntity Course(Guid module, int year, int bimester) => new()
 {

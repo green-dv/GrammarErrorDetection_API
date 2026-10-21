@@ -53,7 +53,8 @@ namespace GrammarErrorDetection.API.Middleware
                 }
 
                 context.Response.Clear();
-                var details = _environment.IsDevelopment() ? exception.ToString() : string.Empty;
+                var details = exception is NlpApiException nlp ? nlp.Details
+                    : _environment.IsDevelopment() ? exception.ToString() : string.Empty;
                 await WriteError(context, statusCode, message, details);
             }
         }
@@ -99,6 +100,7 @@ namespace GrammarErrorDetection.API.Middleware
                 ValidationException or ArgumentException => (StatusCodes.Status400BadRequest, exception.Message),
                 KeyNotFoundException => (StatusCodes.Status404NotFound, exception.Message),
                 AuthConflictException => (StatusCodes.Status409Conflict, exception.Message),
+                NlpApiException => (StatusCodes.Status502BadGateway, exception.Message),
                 UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "Credenciales o código de verificación no válidos."),
                 DbException { SqlState: "23505" or "23503" } => (StatusCodes.Status409Conflict, GetStatusMessage(StatusCodes.Status409Conflict)),
                 DbException { SqlState: "23502" or "23514" or "22001" or "22P02" } => (StatusCodes.Status400BadRequest, GetStatusMessage(StatusCodes.Status400BadRequest)),

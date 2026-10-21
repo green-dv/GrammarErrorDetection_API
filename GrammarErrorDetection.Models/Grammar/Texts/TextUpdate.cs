@@ -1,21 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Text;
+using GrammarErrorDetection.Models.Grammar.Validation;
 
-namespace GrammarErrorDetection.Models.Grammar.Texts
+namespace GrammarErrorDetection.Models.Grammar.Texts;
+
+public sealed class TextUpdate
 {
-    public class TextUpdate
-    {
-        [Required]
-        Guid Id { get; set; }
-        [Required]
-        Guid UserId { get; set; }
-        [Required]
-        DateTime SubmissionDate { get; set; } = DateTime.UtcNow;
-        [Required]
-        string OriginalContent { get; set; } = string.Empty;
-        [Required]
-        string Status { get; set; } = "Pendiente";
-    }
+    [NotEmptyGuid]
+    public Guid Id { get; set; }
+
+    [NotEmptyGuid]
+    public Guid? UserId { get; set; }
+
+    public DateTime? SubmissionDate { get; set; }
+    public string? OriginalContent { get; set; }
+    [StringLength(30)]
+    public string? Status { get; set; }
+    public bool? Active { get; set; }
 }
