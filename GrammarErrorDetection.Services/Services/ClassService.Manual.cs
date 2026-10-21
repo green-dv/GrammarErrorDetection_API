@@ -22,8 +22,7 @@ public sealed partial class ClassService
         var snapshot = await LoadManualSnapshot(filter.ModuleNameId);
         if (filter.ClassId is Guid classId)
         {
-            var course = snapshot.Classes.SingleOrDefault(c => c.Id == classId)
-                ?? throw new ValidationException("El curso no existe.");
+            var course = snapshot.Classes.SingleOrDefault(c => c.Id == classId) ?? throw new ValidationException("El curso no existe.");
             if (course.ModuleNameId != filter.ModuleNameId || course.Year != filter.Year || course.Bimester != filter.Bimester)
                 throw new ValidationException("El curso no corresponde al módulo, año y bimestre indicados.");
             var enrolled = snapshot.Registrations.Where(r => r.Active == true && r.ClassId == classId

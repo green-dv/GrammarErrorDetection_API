@@ -1,12 +1,50 @@
 using System.Data;
 using GrammarErrorDetection.Models.Grammar.Users;
 using GrammarErrorDetection.Models.Grammar.Registrations;
+using GrammarErrorDetection.Models.Grammar.Texts;
+using System.Text.Json;
 
 namespace GrammarErrorDetection.Repositories.Utils;
 
 /// <summary>Mapeos de resultados de consultas a DTO, separados de las entidades de tabla.</summary>
 public static class ConvertToDto
 {
+    public static TextListItemDto TextListToDto(DataRow row)
+    {
+        var text = ConvertToEntity.TextToEntity(row);
+        return new TextListItemDto
+        {
+            Id = text.Id, UserId = text.UserId, SubmissionDate = text.SubmissionDate,
+            OriginalContent = text.OriginalContent, Status = text.Status,
+            CreatedAt = text.CreatedAt, UpdatedAt = text.UpdatedAt, Active = text.Active,
+            Sentences = ReadTextSentences(row)
+        };
+    }
+
+    // Text_Detail_List devuelve t.* y las oraciones con errores en Sentences (JSONB).
+    private static List<SentenceErrorDto> ReadTextSentences(DataRow row)
+    {
+        if (!row.Table.Columns.Contains("Sentences"))
+            throw new DataException("Text_Detail_List no devolvió la columna Sentences.");
+        try
+        {
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var sentences = row["Sentences"] switch
+            {
+                DBNull => [],
+                string json => JsonSerializer.Deserialize<List<SentenceErrorDto>>(json, options) ?? [],
+                JsonDocument document => document.RootElement.Deserialize<List<SentenceErrorDto>>(options) ?? [],
+                JsonElement element => element.Deserialize<List<SentenceErrorDto>>(options) ?? [],
+                _ => throw new DataException("Sentences debe contener las oraciones y sus errores; no una lista de IDs.")
+            };
+            return sentences.OrderBy(s => s.SentenceIndex).ToList();
+        }
+        catch (JsonException exception)
+        {
+            throw new DataException("El detalle de Sentences no corresponde al DTO de oraciones y errores.", exception);
+        }
+    }
+
     public static RegistrationListItemDto RegistrationListToDto(DataRow row)
     {
         ArgumentNullException.ThrowIfNull(row);
