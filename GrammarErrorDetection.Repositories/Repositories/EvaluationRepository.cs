@@ -27,6 +27,7 @@ public sealed class EvaluationRepository : IEvaluationRepository
             [
                 new("Id", NpgsqlDbType.Uuid, filter.Id),
                 new("RegistrationId", NpgsqlDbType.Uuid, filter.RegistrationId),
+                new("UserId", NpgsqlDbType.Uuid, filter.UserId),
                 new("Period", NpgsqlDbType.Integer, filter.Period),
                 new("WritingScore", NpgsqlDbType.Integer, filter.WritingScore),
                 new("GrammarScore", NpgsqlDbType.Integer, filter.GrammarScore),
@@ -42,7 +43,7 @@ public sealed class EvaluationRepository : IEvaluationRepository
                 new("Results", NpgsqlDbType.Refcursor, "repository_list", ParameterDirection.InputOutput)
             ], StoredProcedureResult.Cursor("Results"));
         using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
-        return table.AsEnumerable().Select(ConvertToEntity.EvaluationToEntity).ToList();
+        return table.AsEnumerable().Select(ConvertToEntity.EvaluationListToEntity).ToList();
     }
 
     public async Task<EvaluationEntity> Insert(EvaluationInsert request)

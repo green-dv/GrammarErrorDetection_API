@@ -1,9 +1,14 @@
+using System.Text.Json.Serialization;
+
 namespace GrammarErrorDetection.Models.Grammar.Evaluations;
 
 public class EvaluationEntity
 {
     public Guid Id { get; set; }
     public Guid RegistrationId { get; set; }
+    // Solo Evaluation_List devuelve este dato; Insert y Update devuelven el compuesto de tabla.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? UserId { get; set; }
     public int? Period { get; set; }
     public int? WritingScore { get; set; }
     public int? GrammarScore { get; set; }

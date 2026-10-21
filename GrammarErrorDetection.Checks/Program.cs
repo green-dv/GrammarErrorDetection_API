@@ -92,6 +92,7 @@ await MustReject(() => service.Submit(student, new() { ClassId = repeat.Id }), "
 Console.WriteLine($"{checks} comprobaciones de inscripciones correctas.");
 await RegistrationListingChecks.Run();
 await CourseHistoryChecks.Run();
+await EvaluationUserChecks.Run();
 
 ClassEntity Course(Guid module, int year, int bimester) => new()
 {

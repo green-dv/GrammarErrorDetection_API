@@ -129,9 +129,19 @@ Los recursos `/api/VerificationCode` y `/api/Role` admiten:
 No hay operaciones DELETE. Los services devuelven entidades o listas; los controllers construyen `Wrapper<T>` con `Data` y, en listados, `Count` (cantidad de elementos de la página). Los errores los gestiona el middleware existente.
 
 El CRUD `/api/Evaluation` administra las evaluaciones por inscripción y periodo,
-con acceso para coordinadores. `ModuleName` incluye la relación opcional
+con acceso para profesores (`Teacher`) y coordinadores (`Coordinator`) en GET,
+POST y PUT. `ModuleName` incluye la relación opcional
 `NextModuleId`. Consulta [evaluaciones y siguiente módulo](docs/evaluations-next-module.md)
 para los contratos, ejemplos y el script PostgreSQL que debe aplicarse antes de usarlos.
+
+`GET /api/Evaluation?PageNumber=1&PageSize=20&Filter.UserId=UUID_ESTUDIANTE`
+permite filtrar evaluaciones por estudiante. `Filter.UserId` es opcional, de tipo UUID,
+y se envía como parámetro `UserId` a `Evaluation_List`. El cursor devuelve `UserId`
+y cada elemento del listado lo expone como `userId`, junto con los campos existentes.
+El controller y el servicio del CRUD propagan ese filtro y resultado con el mismo
+formato `Wrapper<T>`. `POST /api/Evaluation` y `PUT /api/Evaluation` conservan sus
+cuerpos, llamadas a SP y respuestas: no reciben ni devuelven `userId`.
+El SQL se administra externamente; no se crean scripts ni se modifica la BD desde la API.
 
 El listado `POST /api/User/search` recibe paginación y filtros en el cuerpo JSON e incluye el nombre del rol, curso actual, promedio
 actual, horario, docente, aula y último curso. El filtro `Filter.CurrentModuleNameId`
