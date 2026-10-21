@@ -8,6 +8,8 @@ public class EvaluationList
     public Guid? Id { get; set; }
     [NotEmptyGuid]
     public Guid? RegistrationId { get; set; }
+    [NotEmptyGuid]
+    public Guid? UserId { get; set; }
     public int? Period { get; set; }
     public int? WritingScore { get; set; }
     public int? GrammarScore { get; set; }
