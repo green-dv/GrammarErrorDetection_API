@@ -7,11 +7,45 @@ using GrammarErrorDetection.Models.Grammar.Registrations;
 using GrammarErrorDetection.Models.Grammar.Roles;
 using GrammarErrorDetection.Models.Grammar.Users;
 using GrammarErrorDetection.Models.Grammar.VerificationCodes;
+using GrammarErrorDetection.Models.Grammar.Texts;
+using GrammarErrorDetection.Models.Grammar.Sentences;
+using GrammarErrorDetection.Models.Grammar.SentenceErrors;
 
 namespace GrammarErrorDetection.Repositories.Utils
 {
     public static class ConvertToEntity
     {
+        public static SentenceEntity SentenceToEntity(DataRow row)
+        {
+            ArgumentNullException.ThrowIfNull(row);
+            return new SentenceEntity
+            {
+                Id = row.Field<Guid>("Id"), TextId = row.Field<Guid>("TextId"),
+                SentenceIndex = row.Field<int>("SentenceIndex"),
+                OriginalSentence = row.Field<string>("OriginalSentence") ?? throw new DataException("Falta OriginalSentence en la oración."),
+                CorrectedSentence = row.Field<string?>("CorrectedSentence"),
+                CreatedAt = row.Field<DateTime>("CreatedAt"), UpdatedAt = row.Field<DateTime>("UpdatedAt"),
+                Active = row.Field<bool>("Active")
+            };
+        }
+
+        public static SentenceErrorEntity SentenceErrorToEntity(DataRow row)
+        {
+            ArgumentNullException.ThrowIfNull(row);
+            return new SentenceErrorEntity
+            {
+                Id = row.Field<Guid>("Id"), SentenceId = row.Field<Guid>("SentenceId"),
+                ErrorClassificationId = row.Field<Guid>("ErrorClassificationId"),
+                ErrorToken = row.Field<string?>("ErrorToken"),
+                ErrorTokenStartIndex = row.Field<int>("ErrorTokenStartIndex"),
+                ErrorTokenEndIndex = row.Field<int>("ErrorTokenEndIndex"),
+                SuggestedCorrection = row.Field<string?>("SuggestedCorrection"),
+                ConfidenceScore = row.Field<decimal?>("ConfidenceScore"),
+                CreatedAt = row.Field<DateTime>("CreatedAt"), UpdatedAt = row.Field<DateTime>("UpdatedAt"),
+                Active = row.Field<bool>("Active")
+            };
+        }
+
         public static EvaluationEntity EvaluationListToEntity(DataRow row)
         {
             var evaluation = EvaluationToEntity(row);
@@ -214,10 +248,6 @@ namespace GrammarErrorDetection.Repositories.Utils
             };
         }
 
-        /// <summary>
-        /// Convierte una fila con las columnas de grammar."Role" a su entidad.
-        /// </summary>
-        /// <param name="row">Fila con las columnas de la entidad, incluidos sus campos anulables.</param>
         public static RoleEntity RoleToEntity(DataRow row)
         {
             ArgumentNullException.ThrowIfNull(row);
@@ -227,6 +257,22 @@ namespace GrammarErrorDetection.Repositories.Utils
                 Id = (Guid)row["Id"],
                 Name = (string)row["Name"],
                 Active = (bool)row["Active"]
+            };
+        }
+        public static TextEntity TextToEntity(DataRow row)
+        {
+            ArgumentNullException.ThrowIfNull(row);
+
+            return new TextEntity
+            {
+                Id = (Guid)row["Id"],
+                UserId = (Guid)row["UserId"],
+                SubmissionDate = (DateTime)row["SubmissionDate"],
+                OriginalContent = (string)row["OriginalContent"],
+                Status = (string)row["Status"],
+                CreatedAt = (DateTime)row["CreatedAt"],
+                UpdatedAt = (DateTime)row["UpdatedAt"],
+                Active = (bool)row["Active"],
             };
         }
     }

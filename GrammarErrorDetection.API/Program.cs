@@ -95,6 +95,12 @@ if (!int.TryParse(expirationSetting, out var expirationMinutes) || expirationMin
 }
 builder.Services.AddSingleton(new VerificationCodeOptions(expirationMinutes));
 builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+builder.Services.AddSingleton(provider =>
+{
+    var configuration = provider.GetRequiredService<IConfiguration>();
+    return new NlpOptions { Endpoint = configuration["NLP_API_URL"] ?? configuration["Nlp:Endpoint"] ?? string.Empty };
+});
+builder.Services.AddHttpClient<INlpService, NlpService>(client => client.Timeout = TimeSpan.FromSeconds(60));
 
 builder.Services.AddSingleton<NpgsqlDataSource>(provider =>
 {
@@ -132,6 +138,10 @@ builder.Services.AddScoped<IClassroomRepository, ClassroomRepository>();
 builder.Services.AddScoped<IClassRepository, ClassRepository>();
 builder.Services.AddScoped<IRegistrationRepository, RegistrationRepository>();
 builder.Services.AddScoped<IEvaluationRepository, EvaluationRepository>();
+builder.Services.AddScoped<ITextRepository, TextRepository>();
+builder.Services.AddScoped<ISentenceRepository, SentenceRepository>();
+builder.Services.AddScoped<ISentenceErrorRepository, SentenceErrorRepository>();
+builder.Services.AddScoped<IErrorClassificationRepository, ErrorClassificationRepository>();
 builder.Services.AddScoped<IVerificationCodeRepository, VerificationCodeRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IEmailRepository, EmailRepository>();
@@ -142,6 +152,7 @@ builder.Services.AddScoped<IClassroomService, ClassroomService>();
 builder.Services.AddScoped<IClassService, ClassService>();
 builder.Services.AddScoped<IRegistrationService, RegistrationService>();
 builder.Services.AddScoped<IEvaluationService, EvaluationService>();
+builder.Services.AddScoped<ITextService, TextService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IVerificationCodeService, VerificationCodeService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
