@@ -12,6 +12,13 @@ namespace GrammarErrorDetection.Repositories.Utils
 {
     public static class ConvertToEntity
     {
+        public static EvaluationEntity EvaluationListToEntity(DataRow row)
+        {
+            var evaluation = EvaluationToEntity(row);
+            evaluation.UserId = row.Field<Guid>("UserId");
+            return evaluation;
+        }
+
         public static EvaluationEntity EvaluationToEntity(DataRow row)
         {
             ArgumentNullException.ThrowIfNull(row);
