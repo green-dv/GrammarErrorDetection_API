@@ -3,6 +3,7 @@ namespace GrammarErrorDetection.Models.Grammar.Users
     public class UserEntity
     {
         public Guid Id { get; set; }
+        public DateOnly? FechaNacimiento { get; set; }
 
         public string FirstName { get; set; } = string.Empty;
 

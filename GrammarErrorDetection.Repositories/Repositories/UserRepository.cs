@@ -56,6 +56,7 @@ namespace GrammarErrorDetection.Repositories.Repositories
                 "grammar",
                 "User_Insert",
                 [
+                    new("FechaNacimiento", NpgsqlDbType.Date, request.FechaNacimiento),
                     new("FirstName", NpgsqlDbType.Varchar, request.FirstName),
                     new("LastName", NpgsqlDbType.Varchar, request.LastName),
                     new("CI", NpgsqlDbType.Varchar, request.CI),
@@ -87,6 +88,7 @@ namespace GrammarErrorDetection.Repositories.Repositories
                 "grammar",
                 "User_Update",
                 [
+                    new("FechaNacimiento", NpgsqlDbType.Date, request.FechaNacimiento),
                     new("Id", NpgsqlDbType.Uuid, request.Id),
                     new("FirstName", NpgsqlDbType.Varchar, request.FirstName),
                     new("LastName", NpgsqlDbType.Varchar, request.LastName),

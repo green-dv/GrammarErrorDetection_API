@@ -103,7 +103,7 @@ namespace GrammarErrorDetection.API.Middleware
                 NlpApiException => (StatusCodes.Status502BadGateway, exception.Message),
                 UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "Credenciales o código de verificación no válidos."),
                 DbException { SqlState: "23505" or "23503" } => (StatusCodes.Status409Conflict, GetStatusMessage(StatusCodes.Status409Conflict)),
-                DbException { SqlState: "23502" or "23514" or "22001" or "22P02" } => (StatusCodes.Status400BadRequest, GetStatusMessage(StatusCodes.Status400BadRequest)),
+                DbException { SqlState: "23502" or "23514" or "22001" or "22P02" or "22023" } => (StatusCodes.Status400BadRequest, GetStatusMessage(StatusCodes.Status400BadRequest)),
                 HttpRequestException => (StatusCodes.Status502BadGateway, GetStatusMessage(StatusCodes.Status502BadGateway)),
                 TimeoutException or OperationCanceledException => (StatusCodes.Status504GatewayTimeout, GetStatusMessage(StatusCodes.Status504GatewayTimeout)),
                 _ => (StatusCodes.Status500InternalServerError, GetStatusMessage(StatusCodes.Status500InternalServerError))

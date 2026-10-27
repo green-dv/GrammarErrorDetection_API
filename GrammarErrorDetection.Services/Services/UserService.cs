@@ -24,6 +24,7 @@ namespace GrammarErrorDetection.Services.Services
             return users.Select(user => new UserListItemDto
             {
                 Id = user.Id, FirstName = user.FirstName, LastName = user.LastName,
+                FechaNacimiento = user.FechaNacimiento,
                 CI = user.CI, Email = user.Email, Phone = user.Phone,
                 RoleId = user.RoleId, RoleName = user.RoleName,
                 HasAuthenticator = user.HasAuthenticator, IsTotpEnabled = user.IsTotpEnabled,
