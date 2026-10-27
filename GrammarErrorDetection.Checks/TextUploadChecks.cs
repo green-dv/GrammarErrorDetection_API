@@ -136,6 +136,8 @@ internal static class TextUploadChecks
         public List<TextEntity> Texts { get; } = [];
         public List<SentenceEntity> Sentences { get; } = [];
         public List<SentenceErrorEntity> Errors { get; } = [];
+        public Task<List<ErrorClassificationEntity>> List(PaginationDto<ErrorClassificationList> request)
+            => throw new NotSupportedException("Este doble solo comprueba la resolución de categorías por nombre.");
         public Task<List<ErrorClassificationEntity>> FindByName(string name)
         {
             CategoryCalls++;

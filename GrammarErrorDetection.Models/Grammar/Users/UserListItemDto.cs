@@ -3,6 +3,7 @@ namespace GrammarErrorDetection.Models.Grammar.Users;
 public sealed class UserListItemDto
 {
     public Guid Id { get; set; }
+    public DateOnly? FechaNacimiento { get; set; }
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public string CI { get; set; } = string.Empty;

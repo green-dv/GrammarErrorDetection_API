@@ -277,6 +277,211 @@ Configura la conexión PostgreSQL mediante `ConnectionStrings:Grammar` en la con
 $env:ConnectionStrings__Grammar = 'Host=localhost;Port=5432;Database=grammar;Username=postgres;Password=tu-clave'
 ```
 
+## Catálogos de clasificación de errores y tipos de archivo
+
+Todos estos endpoints requieren `Authorization: Bearer <token>` y solo permiten consultas.
+
+| Método | Ruta | Resultado |
+|---|---|---|
+| GET | `/api/ErrorClassification?PageNumber=1&PageSize=10` | Página de clasificaciones |
+| GET | `/api/ErrorClassification/{id}` | Clasificación por ID |
+| GET | `/api/FileType?PageNumber=1&PageSize=10` | Página de tipos de archivo |
+| GET | `/api/FileType/{id}` | Tipo de archivo por ID |
+
+Ambos listados aceptan `Filter.Id`, `Filter.Name`, `Filter.Active` y
+`Filter.CreatedAt` (fecha `YYYY-MM-DD`). ErrorClassification también acepta
+`Filter.Description`; FileType acepta `Filter.Extension` y `Filter.MimeType`.
+Las respuestas usan `data`, `count` y `error`; `count` indica el tamaño
+de la página. Las consultas individuales devuelven 404 cuando el ID no existe.
+Se ejecutan únicamente `ErrorClassification_List` y `FileType_List`, con
+CALL y FETCH dentro de la misma conexión y transacción.
+
+## Consulta de niveles
+
+`GET /api/UserLevel?PageNumber=1&PageSize=10&Filter.Active=true`
+requiere JWT. No recibe body. Usa exclusivamente `grammar.UserLevel_List`
+mediante CALL y FETCH en la misma conexión y transacción.
+
+Filtros opcionales: `Filter.Id` (UUID), `Filter.Level` (entero),
+`Filter.Name` (máximo 50 caracteres), `Filter.MinPoints` y
+`Filter.MaxPoints` (enteros de 64 bits), `Filter.Active` (booleano) y
+`Filter.CreatedAt` (fecha YYYY-MM-DD).
+`PageNumber` y `PageSize` deben ser mayores que cero.
+`MinPoints` no puede superar `MaxPoints`: ambos delimitan el campo
+`MinPoints` de los niveles, tal como lo hace el SP.
+
+La respuesta conserva el orden del SP por nivel e ID y usa
+`{"data":[...],"count":1,"error":null}`. Cada elemento contiene
+`id`, `level`, `name`, `minPoints`, `createdAt`, `updatedAt`,
+`active` y `totalCount`. `count` es el tamaño de la página;
+`totalCount` es el total de coincidencias antes de paginar, de 64 bits.
+Si la página está vacía, devuelve `data: []` y `count: 0`; el SP no
+proporciona un total cuando no devuelve filas.
+
+## Asignación manual de puntos
+
+Las escrituras requieren JWT con rol `Teacher` o `Coordinator`. Las consultas
+también permiten `Student`: su historial y total se limitan al usuario del token,
+independientemente del UserId solicitado. Profesores y coordinadores conservan
+los filtros de consulta:
+
+| Método | Endpoint | Resultado |
+|---|---|---|
+| POST | `/api/PointTransaction` | Crea una asignación, 201 |
+| PUT | `/api/PointTransaction` | Actualiza una asignación, 200 |
+| GET | `/api/PointTransaction` | Historial de puntos con filtros y paginación, 200 |
+| GET | `/api/PointTransaction/total?UserId={userId}&ClassId={classId}` | Total de puntos activos, 200 |
+
+Ejemplo de inserción:
+
+```json
+{
+  "registrationId": "11111111-1111-1111-1111-111111111111",
+  "amount": 10,
+  "reason": "Participación en clase"
+}
+```
+
+`registrationId` identifica la inscripción del estudiante en el curso. Se
+obtiene del listado de inscripciones. `amount` es un entero obligatorio y
+admite ajustes negativos; `reason` es obligatorio, máximo 255 caracteres.
+`grantedAt` es opcional: omitirlo o enviarlo como null usa la fecha de Bolivia
+definida por el SP. `active` tiene valor predeterminado true.
+
+PUT requiere `id` y acepta opcionalmente `registrationId`, `amount`, `reason`,
+`grantedAt` y `active`. Campos omitidos o null conservan el valor actual.
+Para anular una asignación se envía `{"id":"…","active":false}`.
+Las escrituras devuelven la entidad en `data` con `id`, `registrationId`,
+`amount`, `reason`, `grantedAt`, `createdAt`, `updatedAt` y `active`.
+
+GET acepta `UserId` y `ClassId` opcionales. Ambos filtros se combinan;
+sin filtros suma todas las transacciones activas. Devuelve
+`{"data":{"totalPoints":10},"count":null,"error":null}`.
+`totalPoints` es un entero de 64 bits. El total sigue el SP: filtra por
+transacciones activas, sin filtrar por estado o actividad de la inscripción.
+Se ejecutan `PointTransaction_Insert`, `PointTransaction_Update`,
+`PointTransaction_List` y `PointTransaction_Total`; CALL y FETCH comparten conexión y transacción.
+La documentación del historial está en [docs/point-transaction-history.md](docs/point-transaction-history.md).
+
+## Leaderboard de usuarios
+
+`POST /api/User/leaderboard` requiere `Authorization: Bearer <token>` y permite
+cualquier usuario autenticado, incluidos estudiantes. El body requiere `userId`,
+que se envía como `UserId` al SP para identificar al usuario actual y agregarlo
+si está fuera del top 10. No restringe la población del ranking.
+
+Body JSON (`userId` obligatorio; los demás campos son filtros opcionales):
+
+```json
+{
+  "userId": "33333333-3333-3333-3333-333333333333",
+  "bimester": 6,
+  "year": 2026,
+  "moduleNameId": "11111111-1111-1111-1111-111111111111"
+}
+```
+
+`userId`: UUID del usuario actual, obligatorio y distinto de cero.
+`bimester`: entero de 1 a 6. `year`: entero mayor que cero.
+`moduleNameId`: UUID distinto de cero. Los campos omitidos o null no filtran;
+los filtros se aplican a los cursos usados para calcular los puntos.
+Omitir el período no selecciona automáticamente el período actual.
+
+Respuesta HTTP 200, ejemplo ilustrativo:
+
+```json
+{
+  "data": [
+    {
+      "position": 1,
+      "userId": "22222222-2222-2222-2222-222222222222",
+      "firstName": "Ana",
+      "lastName": "Pérez",
+      "userName": "Ana Pérez",
+      "moduleNameId": "11111111-1111-1111-1111-111111111111",
+      "moduleName": "Módulo I",
+      "totalPoints": 120,
+      "isCurrentUser": false,
+      "isTop10": true
+    },
+    {
+      "position": null,
+      "userId": "33333333-3333-3333-3333-333333333333",
+      "firstName": "Luis",
+      "lastName": "Rojas",
+      "userName": "Luis Rojas",
+      "moduleNameId": null,
+      "moduleName": null,
+      "totalPoints": 0,
+      "isCurrentUser": true,
+      "isTop10": false
+    }
+  ],
+  "count": 2,
+  "error": null
+}
+```
+
+Devuelve hasta diez usuarios del ranking y agrega al usuario actual cuando no
+está en el top 10: como máximo once filas, sin paginación. Si el usuario actual
+ya está entre los primeros diez aparece una sola vez. Si no tiene inscripciones
+en la población filtrada, su posición es null y sus puntos son cero.
+`position` y `totalPoints` usan enteros de 64 bits; `count` cuenta filas devueltas.
+El SP desempata posiciones por UUID. El módulo mostrado corresponde al curso
+seleccionado por el SP para el perfil y puede diferir del filtro de módulo.
+
+Se ejecuta `grammar."User_Leaderboard"` mediante cursor INOUT `Results`; CALL y
+FETCH usan la misma conexión y transacción. El SP debe estar instalado en la
+base de datos. El usuario actual debe estar activo.
+Errores: 400 por userId omitido o inválido, filtros inválidos o SQLSTATE 22023 del
+SP; 401 sin token válido. Las respuestas de error usan el wrapper habitual de la API.
+
+## Material de apoyo
+
+El CRUD usa exclusivamente `SupportMaterial_List`, `SupportMaterial_Insert` y
+`SupportMaterial_Update`. El ejecutor mantiene CALL/FETCH en la misma conexión
+y transacción; no se crean ni modifican SPs desde la API.
+
+| Método | Ruta | Acceso | Resultado |
+|---|---|---|---|
+| GET | `/api/SupportMaterial?PageNumber=1&PageSize=20` | Usuario autenticado | Página de materiales, HTTP 200. |
+| GET | `/api/SupportMaterial/{id}` | Usuario autenticado | Material con nombres de categoría y autor; HTTP 404 si no existe. |
+| POST | `/api/SupportMaterial` | Teacher o Coordinator | Entidad creada, HTTP 201. |
+| PUT | `/api/SupportMaterial` | Teacher o Coordinator | Entidad actualizada, HTTP 200. |
+
+Las respuestas usan `Wrapper<T>`. El listado recibe filtros opcionales mediante
+`Filter.Id`, `Filter.Name`, `Filter.ErrorClassificationId`, `Filter.UploadDate`,
+`Filter.FileLink`, `Filter.FileTypeId`, `Filter.FileSize`, `Filter.UploadedBy`,
+`Filter.Active` y `Filter.CreatedAt`. Las fechas de filtro usan YYYY-MM-DD;
+PageNumber y PageSize son obligatorios y mayores a cero. El orden lo define el SP
+por CreatedAt descendente e Id; count corresponde a los elementos de la página.
+
+El DTO de respuesta de lectura agrega `errorClassificationName` y `uploadedByName`
+a los campos de tabla. Insert/Update devuelven solo `SupportMaterialEntity`, sin
+exigir esos nombres en sus parámetros OUT. Se registra el enlace del archivo;
+estos endpoints reciben JSON, no el archivo binario.
+
+Ejemplo de POST:
+
+```json
+{
+  "name": "Guía de concordancia",
+  "errorClassificationId": "11111111-1111-1111-1111-111111111111",
+  "uploadDate": "2026-10-21T10:00:00",
+  "fileLink": "/materials/concordancia.pdf",
+  "fileTypeId": "22222222-2222-2222-2222-222222222222",
+  "uploadedBy": "33333333-3333-3333-3333-333333333333",
+  "fileSize": 102400,
+  "active": true
+}
+```
+
+En POST todos los campos del ejemplo son obligatorios excepto fileSize (null por
+defecto) y active (true por defecto). FileSize se maneja como long/BIGINT no negativo.
+En PUT solo id es obligatorio; los demás son opcionales y NULL conserva el valor
+actual según el SP. Se conservan explícitamente FileSize=0 y Active=false. Las
+fechas de escritura se normalizan a TIMESTAMP sin zona en hora de Bolivia.
+
 ## Repository de textos
 
 ### Carga y análisis de un párrafo

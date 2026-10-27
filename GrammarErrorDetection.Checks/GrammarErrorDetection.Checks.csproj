@@ -6,6 +6,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <Compile Include="../GrammarErrorDetection.API/Controllers/PointTransactionController.cs" Link="Controllers/PointTransactionController.cs" />
+    <Compile Include="../GrammarErrorDetection.API/Controllers/UserLeaderboardController.cs" Link="Controllers/UserLeaderboardController.cs" />
     <ProjectReference Include="../GrammarErrorDetection.Services/GrammarErrorDetection.Services.csproj" />
   </ItemGroup>
 </Project>

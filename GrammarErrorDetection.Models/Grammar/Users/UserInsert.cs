@@ -5,6 +5,8 @@ namespace GrammarErrorDetection.Models.Grammar.Users
 {
     public class UserInsert
     {
+        public DateOnly? FechaNacimiento { get; set; }
+
         [Required]
         [StringLength(50)]
         public string FirstName { get; set; } = string.Empty;

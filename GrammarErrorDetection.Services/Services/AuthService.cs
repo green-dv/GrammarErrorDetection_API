@@ -88,6 +88,7 @@ namespace GrammarErrorDetection.Services.Services
             var user = await userRepository.Insert(new UserInsert
             {
                 FirstName = request.FirstName.Trim(),
+                FechaNacimiento = request.FechaNacimiento,
                 LastName = request.LastName.Trim(),
                 CI = request.CI.Trim(),
                 Email = request.Email.Trim(),
@@ -119,8 +120,7 @@ namespace GrammarErrorDetection.Services.Services
         {
             Validate(request);
             var user = await ValidateCredentialsAsync(request.Email.Trim(), request.Password);
-            if (!user.IsTotpEnabled || string.IsNullOrWhiteSpace(user.TotpSecret)
-                || !VerifyTotp(user.TotpSecret, request.Code, out var step))
+            if (!user.IsTotpEnabled || string.IsNullOrWhiteSpace(user.TotpSecret) || !VerifyTotp(user.TotpSecret, request.Code, out var step))
                 throw InvalidCode();
 
             // Registro interno para impedir reutilizar el mismo paso TOTP entre logins.
@@ -292,6 +292,7 @@ namespace GrammarErrorDetection.Services.Services
                 {
                     Id = user.Id,
                     Name = $"{user.FirstName} {user.LastName}".Trim(),
+                    FechaNacimiento = user.FechaNacimiento,
                     Email = user.Email,
                 }
             };
