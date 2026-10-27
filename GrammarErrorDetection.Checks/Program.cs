@@ -98,6 +98,11 @@ await SentenceRepositoryChecks.Run();
 await NlpServiceChecks.Run();
 await TextUploadChecks.Run();
 await ErrorClassificationChecks.Run();
+await SupportMaterialChecks.Run();
+await PointTransactionChecks.Run();
+await PointTransactionAuthorizationChecks.Run();
+await UserLeaderboardChecks.Run();
+await UserLevelChecks.Run();
 
 ClassEntity Course(Guid module, int year, int bimester) => new()
 {

@@ -3,12 +3,29 @@ using GrammarErrorDetection.Models.Grammar.Users;
 using GrammarErrorDetection.Models.Grammar.Registrations;
 using GrammarErrorDetection.Models.Grammar.Texts;
 using System.Text.Json;
+using GrammarErrorDetection.Models.Grammar.SupportMaterials;
 
 namespace GrammarErrorDetection.Repositories.Utils;
 
 /// <summary>Mapeos de resultados de consultas a DTO, separados de las entidades de tabla.</summary>
 public static class ConvertToDto
 {
+    public static SupportMaterialListItemDto SupportMaterialListToDto(DataRow row)
+    {
+        var material = ConvertToEntity.SupportMaterialToEntity(row);
+        return new SupportMaterialListItemDto
+        {
+            Id = material.Id, Name = material.Name, ErrorClassificationId = material.ErrorClassificationId,
+            UploadDate = material.UploadDate, FileLink = material.FileLink, FileTypeId = material.FileTypeId,
+            FileSize = material.FileSize, UploadedBy = material.UploadedBy, Active = material.Active,
+            CreatedAt = material.CreatedAt, UpdatedAt = material.UpdatedAt,
+            ErrorClassificationName = row.Field<string>("ErrorClassificationName")
+                ?? throw new DataException("Falta ErrorClassificationName en el listado de material de apoyo."),
+            UploadedByName = row.Field<string>("UploadedByName")
+                ?? throw new DataException("Falta UploadedByName en el listado de material de apoyo.")
+        };
+    }
+
     public static TextListItemDto TextListToDto(DataRow row)
     {
         var text = ConvertToEntity.TextToEntity(row);

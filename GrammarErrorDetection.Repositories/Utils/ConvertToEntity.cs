@@ -10,11 +10,28 @@ using GrammarErrorDetection.Models.Grammar.VerificationCodes;
 using GrammarErrorDetection.Models.Grammar.Texts;
 using GrammarErrorDetection.Models.Grammar.Sentences;
 using GrammarErrorDetection.Models.Grammar.SentenceErrors;
+using GrammarErrorDetection.Models.Grammar.SupportMaterials;
 
 namespace GrammarErrorDetection.Repositories.Utils
 {
     public static class ConvertToEntity
     {
+        public static SupportMaterialEntity SupportMaterialToEntity(DataRow row)
+        {
+            ArgumentNullException.ThrowIfNull(row);
+            return new SupportMaterialEntity
+            {
+                Id = row.Field<Guid>("Id"),
+                Name = row.Field<string>("Name") ?? throw new DataException("Falta Name en el material de apoyo."),
+                ErrorClassificationId = row.Field<Guid>("ErrorClassificationId"),
+                UploadDate = row.Field<DateTime>("UploadDate"),
+                FileLink = row.Field<string>("FileLink") ?? throw new DataException("Falta FileLink en el material de apoyo."),
+                FileTypeId = row.Field<Guid>("FileTypeId"), FileSize = row.Field<long?>("FileSize"),
+                UploadedBy = row.Field<Guid>("UploadedBy"), Active = row.Field<bool>("Active"),
+                CreatedAt = row.Field<DateTime>("CreatedAt"), UpdatedAt = row.Field<DateTime>("UpdatedAt")
+            };
+        }
+
         public static SentenceEntity SentenceToEntity(DataRow row)
         {
             ArgumentNullException.ThrowIfNull(row);
@@ -208,6 +225,13 @@ namespace GrammarErrorDetection.Repositories.Utils
             {
                 Id = (Guid)row["Id"],
                 FirstName = (string)row["FirstName"],
+                FechaNacimiento = row["FechaNacimiento"] switch
+                {
+                    DBNull => null,
+                    DateOnly date => date,
+                    DateTime date => DateOnly.FromDateTime(date),
+                    _ => throw new DataException("FechaNacimiento debe ser una fecha válida.")
+                },
                 LastName = (string)row["LastName"],
                 CI = (string)row["CI"],
                 Email = (string)row["Email"],
