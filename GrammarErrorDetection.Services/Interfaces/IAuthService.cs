@@ -9,6 +9,7 @@ namespace GrammarErrorDetection.Services.Interfaces
         Task<LoginResponse> SignupAsync(SignupConfirmationRequest request);
         Task<LoginResponse> VerifyMfaLoginAsync(VerifyMfaRequest request);
         Task<LoginResponse> VerifyTotpLoginAsync(VerifyTotpLoginRequest request);
+        Task<LoginResponse> CompletePasswordChangeAsync(CompletePasswordChangeRequest request);
         Task<TotpSetupResponse> GenerateTotpSetupAsync(Guid userId, string email);
         Task ConfirmTotpSetupAsync(Guid userId, string email, TotpCodeRequest request);
     }
