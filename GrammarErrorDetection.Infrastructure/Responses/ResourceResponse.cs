@@ -21,6 +21,8 @@ namespace GrammarErrorDetection.Infrastructure.Responses
         public T? Data { get; }
         public ResourceError? Error { get; }
         public HttpStatusCode? StatusCode { get; }
+        /// <summary>Excepción original de un fallo, para reenvolver la respuesta sin perderla.</summary>
+        public Exception? Exception => exception;
 
         public static ResourceResponse<T> Ok(T? data, HttpStatusCode? statusCode = null)
             => new(data, null, statusCode, null);
