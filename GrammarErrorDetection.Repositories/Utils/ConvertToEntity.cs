@@ -32,6 +32,28 @@ namespace GrammarErrorDetection.Repositories.Utils
             };
         }
 
+        public static SupportMaterialInteractionEntity SupportMaterialInteractionToEntity(DataRow row)
+        {
+            ArgumentNullException.ThrowIfNull(row);
+            return new SupportMaterialInteractionEntity
+            {
+                Id = row.Field<Guid>("Id"),
+                UserId = row.Field<Guid>("UserId"),
+                SupportMaterialId = row.Field<Guid>("SupportMaterialId"),
+                RegistrationId = row.Field<Guid?>("RegistrationId"),
+                FirstViewedAt = row.Field<DateTime>("FirstViewedAt"),
+                LastViewedAt = row.Field<DateTime>("LastViewedAt"),
+                ViewCount = row.Field<int>("ViewCount"),
+                Downloaded = row.Field<bool>("Downloaded"),
+                Helpful = row.Field<bool?>("Helpful"),
+                FeedbackAt = row.Field<DateTime?>("FeedbackAt"),
+                Comment = row.Field<string?>("Comment"),
+                Active = row.Field<bool>("Active"),
+                CreatedAt = row.Field<DateTime>("CreatedAt"),
+                UpdatedAt = row.Field<DateTime>("UpdatedAt")
+            };
+        }
+
         public static SentenceEntity SentenceToEntity(DataRow row)
         {
             ArgumentNullException.ThrowIfNull(row);
@@ -225,18 +247,18 @@ namespace GrammarErrorDetection.Repositories.Utils
             {
                 Id = (Guid)row["Id"],
                 FirstName = (string)row["FirstName"],
-                FechaNacimiento = row["FechaNacimiento"] switch
-                {
-                    DBNull => null,
-                    DateOnly date => date,
-                    DateTime date => DateOnly.FromDateTime(date),
-                    _ => throw new DataException("FechaNacimiento debe ser una fecha válida.")
-                },
                 LastName = (string)row["LastName"],
                 CI = (string)row["CI"],
                 Email = (string)row["Email"],
                 Password = (string)row["Password"],
                 Phone = row.Field<string?>("Phone"),
+                FechaNacimiento = !row.Table.Columns.Contains("FechaNacimiento") ? null : row["FechaNacimiento"] switch
+                {
+                    DBNull => null,
+                    DateOnly date => date,
+                    DateTime dateTime => DateOnly.FromDateTime(dateTime),
+                    _ => throw new DataException("FechaNacimiento debe ser una fecha válida.")
+                },
                 RoleId = (Guid)row["RoleId"],
                 HasAuthenticator = (bool)row["HasAuthenticator"],
                 TotpSecret = row.Field<string?>("TotpSecret"),
@@ -291,7 +313,8 @@ namespace GrammarErrorDetection.Repositories.Utils
             {
                 Id = (Guid)row["Id"],
                 UserId = (Guid)row["UserId"],
-                SubmissionDate = (DateTime)row["SubmissionDate"],
+                RegistrationId = row.Table.Columns.Contains("RegistrationId") ? row.Field<Guid?>("RegistrationId") : null,
+                SubmissionDate = DateTime.SpecifyKind((DateTime)row["SubmissionDate"], DateTimeKind.Utc),
                 OriginalContent = (string)row["OriginalContent"],
                 Status = (string)row["Status"],
                 CreatedAt = (DateTime)row["CreatedAt"],

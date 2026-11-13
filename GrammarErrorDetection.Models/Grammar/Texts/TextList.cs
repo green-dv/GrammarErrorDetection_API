@@ -5,6 +5,8 @@ namespace GrammarErrorDetection.Models.Grammar.Texts;
 
 public sealed class TextList
 {
+    [GrammarErrorDetection.Models.Grammar.Validation.NotEmptyGuid] public Guid? RegistrationId { get; set; }
+
     [NotEmptyGuid]
     public Guid? Id { get; set; }
 
