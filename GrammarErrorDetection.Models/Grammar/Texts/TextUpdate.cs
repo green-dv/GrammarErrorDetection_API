@@ -5,6 +5,9 @@ namespace GrammarErrorDetection.Models.Grammar.Texts;
 
 public sealed class TextUpdate
 {
+    [GrammarErrorDetection.Models.Grammar.Validation.NotEmptyGuid] public Guid? RegistrationId { get; set; }
+    public bool? ClearRegistrationId { get; set; }
+
     [NotEmptyGuid]
     public Guid Id { get; set; }
 

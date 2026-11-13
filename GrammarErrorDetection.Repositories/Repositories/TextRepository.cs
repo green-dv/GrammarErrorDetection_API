@@ -34,7 +34,8 @@ public sealed class TextRepository : ITextRepository
                 new("CreatedAt", NpgsqlDbType.Date, filter.CreatedAt),
                 new("PageNumber", NpgsqlDbType.Integer, request.PageNumber),
                 new("PageSize", NpgsqlDbType.Integer, request.PageSize),
-                new("Results", NpgsqlDbType.Refcursor, "text_detail_list", ParameterDirection.InputOutput)
+                new("Results", NpgsqlDbType.Refcursor, "text_detail_list", ParameterDirection.InputOutput),
+                new("RegistrationId", NpgsqlDbType.Uuid, filter.RegistrationId)
             ], StoredProcedureResult.Cursor("Results"));
         using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
         return table.AsEnumerable().Select(ConvertToDto.TextListToDto).ToList();
@@ -48,14 +49,32 @@ public sealed class TextRepository : ITextRepository
                 new("UserId", NpgsqlDbType.Uuid, request.UserId),
                 new("OriginalContent", NpgsqlDbType.Text, request.OriginalContent),
                 new("Text", NpgsqlDbType.Unknown, Direction: ParameterDirection.Output),
-                new("SubmissionDate", NpgsqlDbType.Timestamp, DatabaseDateTime.ToTimestamp(request.SubmissionDate)),
+                new("SubmissionDate", NpgsqlDbType.Timestamp, ToUtcTimestamp(request.SubmissionDate)),
                 new("Status", NpgsqlDbType.Varchar, request.Status),
-                new("Active", NpgsqlDbType.Boolean, request.Active)
+                new("Active", NpgsqlDbType.Boolean, request.Active),
+                new("RegistrationId", NpgsqlDbType.Uuid, request.RegistrationId)
             ], StoredProcedureResult.Composite("Text", "grammar", "Text"));
         using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
         if (table.Rows.Count != 1) throw new DataException("Se esperaba exactamente una entidad.");
         return ConvertToEntity.TextToEntity(table.Rows[0]);
     }
+
+    public async Task<TextEntity> CompleteAnalysis(Guid id, Guid? registrationId)
+    {
+        List<StoredProcedureParameter> parameters = [new("Id", NpgsqlDbType.Uuid, id)];
+        if (registrationId.HasValue)
+            parameters.Add(new("RegistrationId", NpgsqlDbType.Uuid, registrationId));
+        parameters.Add(new("Text", NpgsqlDbType.Unknown, Direction: ParameterDirection.Output));
+
+        var response = await executor.ExecuteStoredProcedureAsync("grammar", "Text_CompleteAnalysis",
+            parameters, StoredProcedureResult.Composite("Text", "grammar", "Text"));
+        using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
+        if (table.Rows.Count != 1) throw new DataException("Se esperaba exactamente una entidad.");
+        return ConvertToEntity.TextToEntity(table.Rows[0]);
+    }
+
+    private static DateTime? ToUtcTimestamp(DateTime? value) => value is null ? null
+        : DateTime.SpecifyKind(value.Value.Kind == DateTimeKind.Local ? value.Value.ToUniversalTime() : value.Value, DateTimeKind.Unspecified);
 
     public async Task<TextEntity> Update(TextUpdate request)
     {
@@ -64,11 +83,13 @@ public sealed class TextRepository : ITextRepository
             [
                 new("Id", NpgsqlDbType.Uuid, request.Id),
                 new("UserId", NpgsqlDbType.Uuid, request.UserId),
-                new("SubmissionDate", NpgsqlDbType.Timestamp, DatabaseDateTime.ToTimestamp(request.SubmissionDate)),
+                new("SubmissionDate", NpgsqlDbType.Timestamp, ToUtcTimestamp(request.SubmissionDate)),
                 new("OriginalContent", NpgsqlDbType.Text, request.OriginalContent),
                 new("Status", NpgsqlDbType.Varchar, request.Status),
                 new("Active", NpgsqlDbType.Boolean, request.Active),
-                new("Text", NpgsqlDbType.Unknown, Direction: ParameterDirection.Output)
+                new("Text", NpgsqlDbType.Unknown, Direction: ParameterDirection.Output),
+                new("RegistrationId", NpgsqlDbType.Uuid, request.RegistrationId),
+                new("ClearRegistrationId", NpgsqlDbType.Boolean, request.ClearRegistrationId)
             ], StoredProcedureResult.Composite("Text", "grammar", "Text"));
         using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
         if (table.Rows.Count != 1) throw new DataException("Se esperaba exactamente una entidad.");

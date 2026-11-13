@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -6,6 +6,8 @@ namespace GrammarErrorDetection.Models.Grammar.Texts
 {
     public class TextEntity
     {
+        public Guid? RegistrationId { get; set; }
+
         public Guid Id { get; set; }
         public Guid UserId { get; set; }
         public DateTime SubmissionDate { get; set; } = DateTime.UtcNow;
