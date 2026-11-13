@@ -43,7 +43,7 @@ internal static class RegistrationEvaluationCalculator
             || !Within(evaluation.GrammarScore.Value, 10) || !Within(evaluation.VocabularyScore.Value, 10)
             || evaluation.GrammarScore.Value + evaluation.VocabularyScore.Value > 10
             || !Within(evaluation.AcademicPerformance.Value, 25))
-            return new(null, $"La evaluación del periodo {evaluation.Period} tiene notas fuera de rango; Grammar y Vocabulary juntos admiten hasta 10 puntos.");
+            return new(null, $"La evaluación del periodo {evaluation.Period} tiene notas fuera de rango.");
 
         return new(evaluation.WritingScore!.Value + evaluation.OralScore!.Value
             + evaluation.ListeningScore!.Value + evaluation.ReadingScore!.Value

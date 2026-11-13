@@ -30,6 +30,7 @@ coverage/
 /database/
 /docs/
 /tests/
+*.md
 
 # Logs
 *.log
