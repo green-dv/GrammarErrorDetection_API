@@ -56,7 +56,6 @@ namespace GrammarErrorDetection.Repositories.Repositories
                 "grammar",
                 "User_Insert",
                 [
-                    new("FechaNacimiento", NpgsqlDbType.Date, request.FechaNacimiento),
                     new("FirstName", NpgsqlDbType.Varchar, request.FirstName),
                     new("LastName", NpgsqlDbType.Varchar, request.LastName),
                     new("CI", NpgsqlDbType.Varchar, request.CI),
@@ -69,6 +68,7 @@ namespace GrammarErrorDetection.Repositories.Repositories
                     new("IsTotpEnabled", NpgsqlDbType.Boolean, request.IsTotpEnabled),
                     new("ChangePassword", NpgsqlDbType.Boolean, request.ChangePassword),
                     new("Active", NpgsqlDbType.Boolean, request.Active),
+                    new("FechaNacimiento", NpgsqlDbType.Date, request.FechaNacimiento),
                     new("User", NpgsqlDbType.Unknown, Direction: ParameterDirection.Output)
                 ],
                 StoredProcedureResult.Composite("User", "grammar", "User"));
@@ -88,7 +88,6 @@ namespace GrammarErrorDetection.Repositories.Repositories
                 "grammar",
                 "User_Update",
                 [
-                    new("FechaNacimiento", NpgsqlDbType.Date, request.FechaNacimiento),
                     new("Id", NpgsqlDbType.Uuid, request.Id),
                     new("FirstName", NpgsqlDbType.Varchar, request.FirstName),
                     new("LastName", NpgsqlDbType.Varchar, request.LastName),
@@ -102,6 +101,7 @@ namespace GrammarErrorDetection.Repositories.Repositories
                     new("IsTotpEnabled", NpgsqlDbType.Boolean, request.IsTotpEnabled),
                     new("ChangePassword", NpgsqlDbType.Boolean, request.ChangePassword),
                     new("Active", NpgsqlDbType.Boolean, request.Active),
+                    new("FechaNacimiento", NpgsqlDbType.Date, request.FechaNacimiento),
                     new("User", NpgsqlDbType.Unknown, Direction: ParameterDirection.Output)
                 ],
                 StoredProcedureResult.Composite("User", "grammar", "User"));

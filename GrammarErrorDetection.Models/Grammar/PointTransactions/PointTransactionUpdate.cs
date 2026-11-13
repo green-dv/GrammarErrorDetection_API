@@ -9,6 +9,9 @@ public sealed class PointTransactionUpdate
     public Guid Id { get; set; }
     [NotEmptyGuid]
     public Guid? RegistrationId { get; set; }
+    [NotEmptyGuid]
+    public Guid? UserId { get; set; }
+    public bool ClearRegistrationId { get; set; }
     public int? Amount { get; set; }
     [StringLength(255)]
     public string? Reason { get; set; }
