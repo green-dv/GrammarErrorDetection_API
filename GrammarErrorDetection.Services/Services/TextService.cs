@@ -13,7 +13,7 @@ namespace GrammarErrorDetection.Services.Services;
 
 public sealed class TextService(ITextRepository texts, ISentenceRepository sentences,
     ISentenceErrorRepository errors, IErrorClassificationRepository classifications,
-    INlpService nlp, ILogger<TextService> logger) : ITextService
+    INlpService nlp, ILogger<TextService> logger, IRegistrationRepository registrations) : ITextService
 {
     public Task<List<TextListItemDto>> List(Guid userId, bool canViewAll, PaginationDto<TextList> request)
     {
@@ -29,6 +29,17 @@ public sealed class TextService(ITextRepository texts, ISentenceRepository sente
         ArgumentNullException.ThrowIfNull(request);
         if (userId == Guid.Empty) throw new ValidationException("El identificador de usuario no puede estar vacío.");
         Validator.ValidateObject(request, new ValidationContext(request), true);
+        if (request.RegistrationId.HasValue)
+        {
+            var matches = await registrations.List(new PaginationDto<GrammarErrorDetection.Models.Grammar.Registrations.RegistrationList>
+            {
+                PageNumber = 1, PageSize = 2,
+                Filter = new() { Id = request.RegistrationId, UserId = userId }
+            });
+            if (!matches.Any(r => r.Id == request.RegistrationId && r.UserId == userId && r.ClassId.HasValue
+                && string.Equals(r.Status, "Approved", StringComparison.OrdinalIgnoreCase)))
+                throw new ValidationException("RegistrationId debe ser una inscripción aprobada del usuario en un curso.");
+        }
         var batch = ParagraphAnalysis.Split(request.OriginalContent);
         if (batch.Count == 0) throw new ValidationException("El párrafo debe contener al menos una oración.");
         var response = await nlp.Analyze(batch, cancellationToken);
@@ -39,7 +50,7 @@ public sealed class TextService(ITextRepository texts, ISentenceRepository sente
         // La validación NLP y de categorías termina antes de la primera escritura.
         var text = await texts.Insert(new TextInsert
         {
-            UserId = userId, OriginalContent = request.OriginalContent,
+            UserId = userId, RegistrationId = request.RegistrationId, OriginalContent = request.OriginalContent,
             SubmissionDate = DateTime.UtcNow, Status = "Procesando", Active = true
         });
         try
@@ -74,10 +85,10 @@ public sealed class TextService(ITextRepository texts, ISentenceRepository sente
                 }
                 detail.Add(item);
             }
-            text = await texts.Update(new TextUpdate { Id = text.Id, Status = "Procesado" });
+            text = await texts.CompleteAnalysis(text.Id, request.RegistrationId);
             return new TextListItemDto
             {
-                Id = text.Id, UserId = text.UserId, SubmissionDate = text.SubmissionDate,
+                Id = text.Id, UserId = text.UserId, RegistrationId = text.RegistrationId, SubmissionDate = text.SubmissionDate,
                 OriginalContent = text.OriginalContent, Status = text.Status, CreatedAt = text.CreatedAt,
                 UpdatedAt = text.UpdatedAt, Active = text.Active, Sentences = detail
             };
