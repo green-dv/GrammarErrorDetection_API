@@ -7,5 +7,6 @@ public interface ITextRepository
 {
     Task<List<TextListItemDto>> List(PaginationDto<TextList> request);
     Task<TextEntity> Insert(TextInsert request);
+    Task<TextEntity> CompleteAnalysis(Guid id, Guid? registrationId);
     Task<TextEntity> Update(TextUpdate request);
 }

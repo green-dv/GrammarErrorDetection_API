@@ -21,4 +21,6 @@ public sealed class SupportMaterialList
     public Guid? UploadedBy { get; set; }
     public bool? Active { get; set; }
     public DateOnly? CreatedAt { get; set; }
+    // Solo estudiantes: lista únicamente los materiales que el usuario autenticado marcó como útiles.
+    public bool? OnlyHelpful { get; set; }
 }

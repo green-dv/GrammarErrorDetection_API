@@ -23,6 +23,9 @@ public sealed class TextController(ITextService service) : ControllerBase
     [HttpPost("upload")]
     public async Task<Wrapper<TextListItemDto>> Upload([FromBody] TextUploadRequest request, CancellationToken cancellationToken)
     {
+        // Docentes y coordinadores no están inscritos: sus párrafos son de consulta y prueba, siempre sin curso.
+        if (request.RegistrationId is not null && !User.IsInRole("Student"))
+            throw new System.ComponentModel.DataAnnotations.ValidationException("Solo los estudiantes pueden asociar un párrafo a un curso.");
         var data = await service.Upload(UserId(), request, cancellationToken);
         Response.StatusCode = StatusCodes.Status201Created;
         return new Wrapper<TextListItemDto> { Data = data };

@@ -22,8 +22,39 @@ public static class ConvertToDto
             ErrorClassificationName = row.Field<string>("ErrorClassificationName")
                 ?? throw new DataException("Falta ErrorClassificationName en el listado de material de apoyo."),
             UploadedByName = row.Field<string>("UploadedByName")
-                ?? throw new DataException("Falta UploadedByName en el listado de material de apoyo.")
+                ?? throw new DataException("Falta UploadedByName en el listado de material de apoyo."),
+            ViewerSeen = row.Field<bool?>("ViewerSeen"),
+            ViewerHelpful = row.Field<bool?>("ViewerHelpful")
         };
+    }
+
+    public static SupportMaterialRecommendationRow SupportMaterialRecommendationToRow(DataRow row)
+    {
+        var material = ConvertToEntity.SupportMaterialToEntity(row);
+        return new SupportMaterialRecommendationRow(
+            new RecommendedMaterialDto
+            {
+                Id = material.Id, Name = material.Name, ErrorClassificationId = material.ErrorClassificationId,
+                UploadDate = material.UploadDate, FileLink = material.FileLink, FileTypeId = material.FileTypeId,
+                FileSize = material.FileSize, UploadedBy = material.UploadedBy, Active = material.Active,
+                CreatedAt = material.CreatedAt, UpdatedAt = material.UpdatedAt,
+                UploadedByName = row.Field<string>("UploadedByName") ?? string.Empty,
+                FileTypeName = row.Field<string>("FileTypeName") ?? throw new DataException("Falta FileTypeName en la recomendación."),
+                FileExtension = row.Field<string>("FileExtension") ?? throw new DataException("Falta FileExtension en la recomendación."),
+                MimeType = row.Field<string>("MimeType") ?? throw new DataException("Falta MimeType en la recomendación."),
+                Rank = checked((int)row.Field<long>("MaterialRank")),
+                Seen = row.Field<bool>("Seen"),
+                Helpful = row.Field<bool?>("Helpful"),
+                Score = row.Field<decimal>("Score"),
+                ReasonCode = row.Field<string>("ReasonCode") ?? throw new DataException("Falta ReasonCode en la recomendación.")
+            },
+            row.Field<string>("ErrorClassificationName") ?? throw new DataException("Falta ErrorClassificationName en la recomendación."),
+            row.Field<string?>("ErrorClassificationDescription"),
+            row.Field<long>("ErrorCount"),
+            row.Field<long>("RelatedTextCount"),
+            row.Field<decimal?>("ErrorPercentage"),
+            row.Field<DateTime?>("LastErrorAt"),
+            checked((int)row.Field<long>("CategoryRank")));
     }
 
     public static TextListItemDto TextListToDto(DataRow row)
@@ -31,7 +62,7 @@ public static class ConvertToDto
         var text = ConvertToEntity.TextToEntity(row);
         return new TextListItemDto
         {
-            Id = text.Id, UserId = text.UserId, SubmissionDate = text.SubmissionDate,
+            Id = text.Id, UserId = text.UserId, RegistrationId = text.RegistrationId, SubmissionDate = text.SubmissionDate,
             OriginalContent = text.OriginalContent, Status = text.Status,
             CreatedAt = text.CreatedAt, UpdatedAt = text.UpdatedAt, Active = text.Active,
             Sentences = ReadTextSentences(row)
