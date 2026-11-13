@@ -9,5 +9,6 @@ public sealed class ChangePasswordRequest
 
     [Required]
     [StringLength(72, MinimumLength = 8)]
+    [GrammarErrorDetection.Models.Grammar.Validation.StrongPassword]
     public string NewPassword { get; set; } = string.Empty;
 }

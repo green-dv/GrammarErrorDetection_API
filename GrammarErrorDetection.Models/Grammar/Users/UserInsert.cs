@@ -5,8 +5,6 @@ namespace GrammarErrorDetection.Models.Grammar.Users
 {
     public class UserInsert
     {
-        public DateOnly? FechaNacimiento { get; set; }
-
         [Required]
         [StringLength(50)]
         public string FirstName { get; set; } = string.Empty;
@@ -46,6 +44,7 @@ namespace GrammarErrorDetection.Models.Grammar.Users
         public bool ChangePassword { get; set; }
 
         public bool Active { get; set; } = true;
+        public DateOnly? FechaNacimiento { get; set; }
     }
 }
 

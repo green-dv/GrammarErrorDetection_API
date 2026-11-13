@@ -4,8 +4,6 @@ namespace GrammarErrorDetection.Models.Auth
 {
     public class SignupRequest
     {
-        public DateOnly? FechaNacimiento { get; set; }
-
         [Required]
         [StringLength(50)]
         public string FirstName { get; set; } = string.Empty;
@@ -30,5 +28,8 @@ namespace GrammarErrorDetection.Models.Auth
         [StringLength(12)]
         [Phone]
         public string? Phone { get; set; }
+
+        /// <summary>Opcional. No puede ser futura.</summary>
+        public DateOnly? FechaNacimiento { get; set; }
     }
 }

@@ -6,6 +6,7 @@ namespace GrammarErrorDetection.Services.Interfaces
 {
     public interface IUserService
     {
+        Task<UserListItemDto> GetAsync(Guid userId, CancellationToken cancellationToken = default);
         Task<List<UserListItemDto>> List(PaginationDto<UserList> request);
         Task<UserEntity> Insert(UserInsert request);
         Task<UserEntity> Update(UserUpdate request);

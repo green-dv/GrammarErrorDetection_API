@@ -3,7 +3,6 @@ namespace GrammarErrorDetection.Models.Grammar.Users
     public class UserUpdate
     {
         public Guid Id { get; set; }
-        public DateOnly? FechaNacimiento { get; set; }
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
         public string? CI { get; set; }
@@ -22,5 +21,7 @@ namespace GrammarErrorDetection.Models.Grammar.Users
         public bool? ChangePassword { get; set; }
 
         public bool? Active { get; set; }
+        /// <summary>Null conserva la fecha actual.</summary>
+        public DateOnly? FechaNacimiento { get; set; }
     }
 }

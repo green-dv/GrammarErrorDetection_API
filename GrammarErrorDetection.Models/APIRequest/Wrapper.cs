@@ -8,6 +8,8 @@ namespace GrammarErrorDetection.Models.APIRequest
     {
         public T? Data { get; set; }
         public int? Count { get; set; }
+        // Listados con el formato de dos DataTables: total de registros que cumplen los filtros (sin paginar).
+        public long? TotalCount { get; set; }
         public APIError? Error { get; set; }
     }
 }
