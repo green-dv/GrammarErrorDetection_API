@@ -60,6 +60,7 @@ public sealed class PointTransactionRepository(IStoredProcedureExecutor executor
         if (request.GrantedAt is not null)
             parameters.Add(new("GrantedAt", NpgsqlDbType.Timestamp, DatabaseDateTime.ToTimestamp(request.GrantedAt)));
         parameters.Add(new("Active", NpgsqlDbType.Boolean, request.Active));
+        parameters.Add(new("UserId", NpgsqlDbType.Uuid, request.UserId));
         return await Write("PointTransaction_Insert", parameters);
     }
 
@@ -74,7 +75,9 @@ public sealed class PointTransactionRepository(IStoredProcedureExecutor executor
                 new("Reason", NpgsqlDbType.Varchar, request.Reason),
                 new("GrantedAt", NpgsqlDbType.Timestamp, DatabaseDateTime.ToTimestamp(request.GrantedAt)),
                 new("Active", NpgsqlDbType.Boolean, request.Active),
-                new("PointTransaction", NpgsqlDbType.Unknown, Direction: ParameterDirection.Output)
+                new("PointTransaction", NpgsqlDbType.Unknown, Direction: ParameterDirection.Output),
+                new("UserId", NpgsqlDbType.Uuid, request.UserId),
+                new("ClearRegistrationId", NpgsqlDbType.Boolean, request.ClearRegistrationId)
             ]);
     }
 
@@ -93,7 +96,8 @@ public sealed class PointTransactionRepository(IStoredProcedureExecutor executor
     {
         return new()
         {
-            Id = row.Field<Guid>("Id"), RegistrationId = row.Field<Guid>("RegistrationId"),
+            Id = row.Field<Guid>("Id"), RegistrationId = row.Field<Guid?>("RegistrationId"),
+            UserId = row.Field<Guid>("UserId"),
             Amount = row.Field<int>("Amount"),
             Reason = row.Field<string>("Reason") ?? throw new DataException("Falta Reason."),
             GrantedAt = row.Field<DateTime>("GrantedAt"), CreatedAt = row.Field<DateTime>("CreatedAt"),

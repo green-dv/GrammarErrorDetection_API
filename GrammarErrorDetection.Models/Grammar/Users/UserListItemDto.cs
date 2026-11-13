@@ -3,12 +3,12 @@ namespace GrammarErrorDetection.Models.Grammar.Users;
 public sealed class UserListItemDto
 {
     public Guid Id { get; set; }
-    public DateOnly? FechaNacimiento { get; set; }
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public string CI { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string? Phone { get; set; }
+    public DateOnly? FechaNacimiento { get; set; }
     public Guid RoleId { get; set; }
     public string RoleName { get; set; } = string.Empty;
     public bool HasAuthenticator { get; set; }
