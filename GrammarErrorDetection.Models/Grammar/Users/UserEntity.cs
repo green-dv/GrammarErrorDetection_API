@@ -3,7 +3,6 @@ namespace GrammarErrorDetection.Models.Grammar.Users
     public class UserEntity
     {
         public Guid Id { get; set; }
-        public DateOnly? FechaNacimiento { get; set; }
 
         public string FirstName { get; set; } = string.Empty;
 
@@ -16,6 +15,8 @@ namespace GrammarErrorDetection.Models.Grammar.Users
         public string Password { get; set; } = string.Empty;
 
         public string? Phone { get; set; }
+
+        public DateOnly? FechaNacimiento { get; set; }
 
         public Guid RoleId { get; set; }
 

@@ -88,14 +88,14 @@ namespace GrammarErrorDetection.Services.Services
             var user = await userRepository.Insert(new UserInsert
             {
                 FirstName = request.FirstName.Trim(),
-                FechaNacimiento = request.FechaNacimiento,
                 LastName = request.LastName.Trim(),
                 CI = request.CI.Trim(),
                 Email = request.Email.Trim(),
                 Phone = request.Phone?.Trim(),
                 Password = BCrypt.Net.BCrypt.HashPassword(request.Password),
                 RoleId = studentRole.Id,
-                Active = true
+                Active = true,
+                FechaNacimiento = UserAccessService.RequireValidBirthDate(request.FechaNacimiento)
             });
 
             return await CreateLoginResponseAsync(user);
@@ -120,7 +120,8 @@ namespace GrammarErrorDetection.Services.Services
         {
             Validate(request);
             var user = await ValidateCredentialsAsync(request.Email.Trim(), request.Password);
-            if (!user.IsTotpEnabled || string.IsNullOrWhiteSpace(user.TotpSecret) || !VerifyTotp(user.TotpSecret, request.Code, out var step))
+            if (!user.IsTotpEnabled || string.IsNullOrWhiteSpace(user.TotpSecret)
+                || !VerifyTotp(user.TotpSecret, request.Code, out var step))
                 throw InvalidCode();
 
             // Registro interno para impedir reutilizar el mismo paso TOTP entre logins.
@@ -217,6 +218,7 @@ namespace GrammarErrorDetection.Services.Services
         private static void ValidateSignup(SignupRequest request)
         {
             Validate(request);
+            UserAccessService.RequireValidBirthDate(request.FechaNacimiento);
             if (Encoding.UTF8.GetByteCount(request.Password) > 72)
                 throw new ValidationException("La contraseña no puede superar 72 bytes UTF-8 para BCrypt.");
         }
@@ -281,6 +283,10 @@ namespace GrammarErrorDetection.Services.Services
             if (role is null || role.Id != user.RoleId || !role.Active || string.IsNullOrWhiteSpace(role.Name))
                 throw new UnauthorizedAccessException("El usuario no tiene un rol válido.");
 
+            // Contraseña temporal o cambio exigido: no se entrega el JWT hasta cambiarla.
+            if (user.ChangePassword)
+                return await CreatePasswordChangeResponseAsync(user);
+
             // JWT representa la expiración con precisión de segundos.
             var expiresAt = DateTimeOffset.FromUnixTimeSeconds(
                 clock.GetUtcNow().AddMinutes(jwtOptions.ExpirationMinutes).ToUnixTimeSeconds());
@@ -292,7 +298,6 @@ namespace GrammarErrorDetection.Services.Services
                 {
                     Id = user.Id,
                     Name = $"{user.FirstName} {user.LastName}".Trim(),
-                    FechaNacimiento = user.FechaNacimiento,
                     Email = user.Email,
                 }
             };
@@ -318,6 +323,55 @@ namespace GrammarErrorDetection.Services.Services
                 signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256));
 
             return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        /// <summary>
+        /// Completa el cambio obligatorio de contraseña con el ticket emitido en el login y entrega el JWT.
+        /// </summary>
+        public async Task<LoginResponse> CompletePasswordChangeAsync(CompletePasswordChangeRequest request)
+        {
+            Validate(request);
+            if (Encoding.UTF8.GetByteCount(request.NewPassword) > 72)
+                throw new ValidationException("La contraseña no puede superar 72 bytes UTF-8 para BCrypt.");
+            var challenge = await GetAttemptAsync(request.ChallengeId, [PasswordChangePurpose]);
+            var user = await FindUserAsync(challenge.Email ?? "");
+            if (user is null || user.Id != challenge.UserId || !user.Active || !user.ChangePassword
+                || !VerifyHash(request.Token, challenge.CodeHash))
+                throw InvalidCode();
+            if (BCrypt.Net.BCrypt.Verify(request.NewPassword, user.Password))
+                throw new ValidationException("La nueva contraseña debe ser distinta de la temporal.");
+
+            await ConsumeAsync(challenge.Id);
+            var updated = await userRepository.Update(new UserUpdate
+            {
+                Id = user.Id, Password = BCrypt.Net.BCrypt.HashPassword(request.NewPassword), ChangePassword = false
+            });
+            user.Password = updated.Password;
+            user.ChangePassword = false;
+            return await CreateLoginResponseAsync(user);
+        }
+
+        private const string PasswordChangePurpose = "password_change";
+
+        private async Task<LoginResponse> CreatePasswordChangeResponseAsync(UserEntity user)
+        {
+            var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+            var challenge = await verificationCodeService.Insert(new VerificationCodeInsert
+            {
+                UserId = user.Id, Email = user.Email, Purpose = PasswordChangePurpose,
+                CodeHash = BCrypt.Net.BCrypt.HashPassword(token), AttemptCount = 0, Active = true
+            });
+            return new LoginResponse
+            {
+                AccessToken = string.Empty,
+                RequiresPasswordChange = true,
+                ExpiresAt = ToResponseTime(challenge.ExpirationTime),
+                PasswordChange = new PasswordChangeTicket
+                {
+                    ChallengeId = challenge.Id, Token = token, ExpiresAt = ToResponseTime(challenge.ExpirationTime)
+                },
+                User = new UserAuthResponse { Id = user.Id, Name = $"{user.FirstName} {user.LastName}".Trim(), Email = user.Email }
+            };
         }
 
         private async Task<UserEntity> ValidateCredentialsAsync(string email, string password)

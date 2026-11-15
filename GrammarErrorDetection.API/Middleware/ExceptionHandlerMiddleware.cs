@@ -97,13 +97,20 @@ namespace GrammarErrorDetection.API.Middleware
             return exception switch
             {
                 BadHttpRequestException request => (request.StatusCode, GetStatusMessage(request.StatusCode)),
+                // Las de guardas del framework (ThrowIfNull, ThrowIfGreaterThan…) traen mensajes técnicos en inglés
+                // o claves de recurso: se responde con un mensaje genérico (el detalle solo va en Development).
+                ArgumentNullException or ArgumentOutOfRangeException
+                    => (StatusCodes.Status400BadRequest, GetStatusMessage(StatusCodes.Status400BadRequest)),
                 ValidationException or ArgumentException => (StatusCodes.Status400BadRequest, exception.Message),
                 KeyNotFoundException => (StatusCodes.Status404NotFound, exception.Message),
                 AuthConflictException => (StatusCodes.Status409Conflict, exception.Message),
                 NlpApiException => (StatusCodes.Status502BadGateway, exception.Message),
+                ReportAccessDeniedException => (StatusCodes.Status403Forbidden, exception.Message),
+                GrammarErrorDetection.Services.Exceptions.AccessDeniedException => (StatusCodes.Status403Forbidden, exception.Message),
                 UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "Credenciales o código de verificación no válidos."),
+                DbException { SqlState: "P0002" } => (StatusCodes.Status404NotFound, GetStatusMessage(StatusCodes.Status404NotFound)),
                 DbException { SqlState: "23505" or "23503" } => (StatusCodes.Status409Conflict, GetStatusMessage(StatusCodes.Status409Conflict)),
-                DbException { SqlState: "23502" or "23514" or "22001" or "22P02" or "22023" } => (StatusCodes.Status400BadRequest, GetStatusMessage(StatusCodes.Status400BadRequest)),
+                DbException { SqlState: "23502" or "23514" or "22001" or "22P02" or "P0001" or "22023" } => (StatusCodes.Status400BadRequest, GetStatusMessage(StatusCodes.Status400BadRequest)),
                 HttpRequestException => (StatusCodes.Status502BadGateway, GetStatusMessage(StatusCodes.Status502BadGateway)),
                 TimeoutException or OperationCanceledException => (StatusCodes.Status504GatewayTimeout, GetStatusMessage(StatusCodes.Status504GatewayTimeout)),
                 _ => (StatusCodes.Status500InternalServerError, GetStatusMessage(StatusCodes.Status500InternalServerError))

@@ -52,7 +52,8 @@ if (builder.Environment.IsDevelopment())
         options.AddPolicy("LocalDevelopment", policy => policy
             .WithOrigins("http://localhost:7178", "https://localhost:7178")
             .AllowAnyHeader()
-            .AllowAnyMethod());
+            .AllowAnyMethod()
+            .WithExposedHeaders("Content-Disposition"));
     });
 }
 
@@ -76,6 +77,22 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 builder.Services.AddAuthorization();
+builder.Services.AddSingleton(provider =>
+{
+    var configuration = provider.GetRequiredService<IConfiguration>();
+    return new SupportMaterialFileOptions
+    {
+        BaseUrl = configuration["SupportMaterialFiles:BaseUrl"]
+            ?? throw new InvalidOperationException("Falta configurar SupportMaterialFiles:BaseUrl."),
+        PublicBaseUrl = configuration["SupportMaterialFiles:PublicBaseUrl"],
+        StoragePath = configuration["SupportMaterialFiles:StoragePath"]
+            ?? throw new InvalidOperationException("Falta configurar SupportMaterialFiles:StoragePath."),
+        ApiKey = configuration["SupportMaterialFiles:ApiKey"]
+    };
+});
+builder.Services.AddHttpClient<ISupportMaterialFileService, GrammarErrorDetection.Services.Services.SupportMaterials.SupportMaterialFileService>(
+        client => client.Timeout = TimeSpan.FromMinutes(3))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -101,6 +118,18 @@ builder.Services.AddSingleton(provider =>
     return new NlpOptions { Endpoint = configuration["NLP_API_URL"] ?? configuration["Nlp:Endpoint"] ?? string.Empty };
 });
 builder.Services.AddHttpClient<INlpService, NlpService>(client => client.Timeout = TimeSpan.FromSeconds(60));
+builder.Services.AddSingleton(provider =>
+{
+    var configuration = provider.GetRequiredService<IConfiguration>();
+    return new AchievementFileOptions
+    {
+        BaseUrl = configuration["AchievementFiles:BaseUrl"] ?? "http://localhost:8081/",
+        PublicBaseUrl = configuration["AchievementFiles:PublicBaseUrl"],
+        Directory = configuration["AchievementFiles:Directory"] ?? "archivos"
+    };
+});
+builder.Services.AddHttpClient<IAchievementFileService, AchievementFileService>(client => client.Timeout = TimeSpan.FromSeconds(60))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 
 builder.Services.AddSingleton<NpgsqlDataSource>(provider =>
 {
@@ -116,7 +145,7 @@ builder.Services.AddSingleton<NpgsqlDataSource>(provider =>
     if (!int.TryParse(Required("DB_PORT"), out var port) ||
         port is < 1 or > 65535)
     {
-        throw new InvalidOperationException("DB_PORT no es válido.");
+        throw new InvalidOperationException("DB_PORT no es vÃ¡lido.");
     }
 
     var connection = new NpgsqlConnectionStringBuilder
@@ -132,8 +161,42 @@ builder.Services.AddSingleton<NpgsqlDataSource>(provider =>
 });
 
 builder.Services.AddScoped<IStoredProcedureExecutor, StoredProcedureExecutor>();
-builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IStoredProcedurePageExecutor, StoredProcedureExecutor>();
+builder.Services.AddScoped<IStoredProcedureMultiResultExecutor, StoredProcedureExecutor>();
+builder.Services.AddScoped<IStudentDashboardRepository, StudentDashboardRepository>();
+builder.Services.AddScoped<IStudentDashboardService, StudentDashboardService>();
+builder.Services.AddScoped<IStaffDashboardRepository, StaffDashboardRepository>();
+builder.Services.AddScoped<IStaffDashboardService, StaffDashboardService>();
+builder.Services.AddScoped<IGrammarReportRepository, GrammarReportRepository>();
+builder.Services.AddScoped<IStudentProgressRepository, StudentProgressRepository>();
+builder.Services.AddScoped<IGrammarReportService, GrammarReportService>();
+builder.Services.AddSingleton<GrammarReportExcelService>();
 builder.Services.AddScoped<IUserLeaderboardRepository, UserLeaderboardRepository>();
+builder.Services.AddScoped<IFileTypeRepository, FileTypeRepository>();
+builder.Services.AddScoped<IErrorClassificationService, ErrorClassificationService>();
+builder.Services.AddScoped<IFileTypeService, FileTypeService>();
+builder.Services.AddScoped<ISupportMaterialRepository, SupportMaterialRepository>();
+builder.Services.AddScoped<IPointTransactionRepository, PointTransactionRepository>();
+builder.Services.AddScoped<IUserLevelRepository, UserLevelRepository>();
+builder.Services.AddScoped<IUserLevelService, UserLevelService>();
+builder.Services.AddScoped<IPointTransactionService, PointTransactionService>();
+builder.Services.AddScoped<IUserLeaderboardService, UserLeaderboardService>();
+builder.Services.AddScoped<ISupportMaterialService, SupportMaterialService>();
+builder.Services.AddScoped<ISupportMaterialRecommendationService, GrammarErrorDetection.Services.Services.SupportMaterials.SupportMaterialRecommendationService>();
+builder.Services.AddScoped<ISupportMaterialInteractionService, GrammarErrorDetection.Services.Services.SupportMaterials.SupportMaterialInteractionService>();
+builder.Services.AddScoped<IAchievementRepository, AchievementRepository>();
+builder.Services.AddScoped<IUserAchievementRepository, UserAchievementRepository>();
+builder.Services.AddScoped<IUserAchievementService, UserAchievementService>();
+builder.Services.AddScoped<IAchievementCollectionRepository, AchievementCollectionRepository>();
+builder.Services.AddScoped<IAchievementCollectionService, AchievementCollectionService>();
+builder.Services.AddScoped<IAchievementService, AchievementService>();
+builder.Services.AddScoped<IChallengeRepository, ChallengeRepository>();
+builder.Services.AddScoped<IChallengeService, ChallengeService>();
+builder.Services.AddScoped<IAchievementCategoryRepository, AchievementCategoryRepository>();
+builder.Services.AddScoped<IAchievementCategoryService, AchievementCategoryService>();
+builder.Services.AddScoped<IConditionTypeRepository, ConditionTypeRepository>();
+builder.Services.AddScoped<IConditionTypeService, ConditionTypeService>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IModuleNameRepository, ModuleNameRepository>();
 builder.Services.AddScoped<IClassroomRepository, ClassroomRepository>();
 builder.Services.AddScoped<IClassRepository, ClassRepository>();
@@ -143,27 +206,21 @@ builder.Services.AddScoped<ITextRepository, TextRepository>();
 builder.Services.AddScoped<ISentenceRepository, SentenceRepository>();
 builder.Services.AddScoped<ISentenceErrorRepository, SentenceErrorRepository>();
 builder.Services.AddScoped<IErrorClassificationRepository, ErrorClassificationRepository>();
-builder.Services.AddScoped<IFileTypeRepository, FileTypeRepository>();
-builder.Services.AddScoped<IErrorClassificationService, ErrorClassificationService>();
-builder.Services.AddScoped<IFileTypeService, FileTypeService>();
-builder.Services.AddScoped<ISupportMaterialRepository, SupportMaterialRepository>();
-builder.Services.AddScoped<IPointTransactionRepository, PointTransactionRepository>();
-builder.Services.AddScoped<IUserLevelRepository, UserLevelRepository>();
-builder.Services.AddScoped<IUserLevelService, UserLevelService>();
-builder.Services.AddScoped<IPointTransactionService, PointTransactionService>();
 builder.Services.AddScoped<IVerificationCodeRepository, VerificationCodeRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IEmailRepository, EmailRepository>();
 builder.Services.AddScoped<IAuthChallengeRepository, AuthChallengeRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<IUserLeaderboardService, UserLeaderboardService>();
+builder.Services.AddScoped<IUserAccessService, UserAccessService>();
+builder.Services.AddSingleton(builder.Configuration.GetSection("UserProvisioning").Get<GrammarErrorDetection.Models.Grammar.Users.UserProvisioningOptions>()
+    ?? new GrammarErrorDetection.Models.Grammar.Users.UserProvisioningOptions());
+builder.Services.AddScoped<IUserProvisioningService, UserProvisioningService>();
 builder.Services.AddScoped<IModuleNameService, ModuleNameService>();
 builder.Services.AddScoped<IClassroomService, ClassroomService>();
 builder.Services.AddScoped<IClassService, ClassService>();
 builder.Services.AddScoped<IRegistrationService, RegistrationService>();
 builder.Services.AddScoped<IEvaluationService, EvaluationService>();
 builder.Services.AddScoped<ITextService, TextService>();
-builder.Services.AddScoped<ISupportMaterialService, SupportMaterialService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IVerificationCodeService, VerificationCodeService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
@@ -223,4 +280,3 @@ app.UseRateLimiter();
 app.MapControllers();
 
 app.Run();
-

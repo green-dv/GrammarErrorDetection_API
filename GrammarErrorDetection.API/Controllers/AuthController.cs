@@ -54,6 +54,15 @@ namespace GrammarErrorDetection.API.Controllers
             }
         }
 
+        /// <summary>Cambio obligatorio de contraseña (cuenta nueva o exigido): entrega el JWT al completarlo.</summary>
+        [AllowAnonymous]
+        [HttpPost("Login/ChangePassword")]
+        public async Task<Wrapper<LoginResponse>> CompletePasswordChange([FromBody] CompletePasswordChangeRequest request)
+        {
+            var data = await service.CompletePasswordChangeAsync(request);
+            return new Wrapper<LoginResponse> { Data = data };
+        }
+
         [AllowAnonymous]
         [HttpPost("SendCode")]
         public async Task<Wrapper<AuthChallengeResponse>> SendCode([FromBody] SendVerificationCodeRequest request)
