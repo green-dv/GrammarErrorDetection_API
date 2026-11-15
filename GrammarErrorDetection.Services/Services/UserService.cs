@@ -24,8 +24,7 @@ namespace GrammarErrorDetection.Services.Services
             return users.Select(user => new UserListItemDto
             {
                 Id = user.Id, FirstName = user.FirstName, LastName = user.LastName,
-                FechaNacimiento = user.FechaNacimiento,
-                CI = user.CI, Email = user.Email, Phone = user.Phone,
+                CI = user.CI, Email = user.Email, Phone = user.Phone, FechaNacimiento = user.FechaNacimiento,
                 RoleId = user.RoleId, RoleName = user.RoleName,
                 HasAuthenticator = user.HasAuthenticator, IsTotpEnabled = user.IsTotpEnabled,
                 ChangePassword = user.ChangePassword, CreatedAt = user.CreatedAt,
@@ -35,6 +34,23 @@ namespace GrammarErrorDetection.Services.Services
             }).ToList();
         }
 
+        public async Task<UserListItemDto> GetAsync(Guid userId, CancellationToken cancellationToken = default)
+        {
+            if (userId == Guid.Empty) throw new ArgumentException("El identificador de usuario no puede estar vacío.", nameof(userId));
+            // User_List no admite Id: la resolución se realiza en el servidor sin alterar su contrato.
+            var seen = new HashSet<Guid>();
+            for (var page = 1; ; page++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var users = await List(new PaginationDto<UserList> { PageNumber = page, PageSize = 100 });
+                cancellationToken.ThrowIfCancellationRequested();
+                var found = users.SingleOrDefault(user => user.Id == userId);
+                if (found is not null) return found;
+                if (users.Count < 100) throw new KeyNotFoundException("No se encontró el usuario solicitado.");
+                if (users.Count(user => seen.Add(user.Id)) == 0)
+                    throw new InvalidOperationException("La consulta de usuarios no avanzó de página.");
+            }
+        }
         public Task<UserEntity> Insert(UserInsert request)
             => repository.Insert(request);
 
@@ -52,6 +68,8 @@ namespace GrammarErrorDetection.Services.Services
             var user = await FindActiveUserAsync(userId);
             if (!BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
                 throw new ValidationException("La contraseña actual es incorrecta.");
+            if (string.Equals(request.Password, request.NewPassword, StringComparison.Ordinal))
+                throw new ValidationException("La nueva contraseña debe ser distinta de la actual.");
 
             await repository.Update(new UserUpdate
             {
