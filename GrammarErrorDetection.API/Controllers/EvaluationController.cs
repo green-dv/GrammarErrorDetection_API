@@ -22,8 +22,8 @@ public sealed class EvaluationController : ControllerBase
     [HttpGet]
     public async Task<Wrapper<List<EvaluationEntity>>> List([FromQuery] PaginationDto<EvaluationList> request)
     {
-        var data = await service.List(request);
-        return new Wrapper<List<EvaluationEntity>> { Data = data, Count = data.Count };
+        var page = await service.ListPage(request);
+        return new() { Data = page.Items, Count = page.Items.Count, TotalCount = page.TotalCount };
     }
 
     [HttpPost]

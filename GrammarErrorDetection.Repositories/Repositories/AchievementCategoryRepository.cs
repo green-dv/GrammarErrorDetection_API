@@ -1,3 +1,4 @@
+using GrammarErrorDetection.Models.Grammar.Dashboards;
 using System.Data;
 using System.Text.Json;
 using GrammarErrorDetection.Infrastructure.Database;
@@ -29,6 +30,32 @@ public sealed class AchievementCategoryRepository(IStoredProcedureExecutor execu
         ], StoredProcedureResult.Cursor("Results"));
         using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
         return table.AsEnumerable().Select(row => Map<AchievementCategoryEntity>(row)).ToList();
+    }
+
+    public async Task<PagedList<AchievementCategoryEntity>> ListPage(PaginationDto<AchievementCategoryList> request)
+    {
+        if (executor is not IStoredProcedurePageExecutor pages)
+        {
+            var items = await List(request);
+            return new PagedList<AchievementCategoryEntity>(items, items.Count);
+        }
+
+        RepositoryValidation.ValidatePagination(request);
+        var filter = request.Filter ?? new AchievementCategoryList();
+        var response = await pages.ExecutePagedStoredProcedureAsync("grammar", "AchievementCategory_List",
+        [
+            new("Id", NpgsqlDbType.Uuid, filter.Id),
+            new("Name", NpgsqlDbType.Varchar, filter.Name),
+            new("Description", NpgsqlDbType.Text, filter.Description),
+            new("Active", NpgsqlDbType.Boolean, filter.Active),
+            new("CreatedAt", NpgsqlDbType.Date, filter.CreatedAt),
+            new("PageNumber", NpgsqlDbType.Integer, request.PageNumber),
+            new("PageSize", NpgsqlDbType.Integer, request.PageSize),
+            new("Results", NpgsqlDbType.Refcursor, "gamification_list", ParameterDirection.InputOutput),
+            new("Total", NpgsqlDbType.Refcursor, "gamification_total", ParameterDirection.InputOutput)
+        ]);
+        using var page = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió la página.");
+        return new PagedList<AchievementCategoryEntity>(page.Rows.AsEnumerable().Select(row => Map<AchievementCategoryEntity>(row)).ToList(), page.TotalCount);
     }
 
     public async Task<AchievementCategoryEntity> Insert(AchievementCategoryInsert request)

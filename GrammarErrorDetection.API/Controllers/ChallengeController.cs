@@ -15,8 +15,8 @@ public sealed class ChallengeController(IChallengeService service) : ControllerB
     [HttpGet]
     public async Task<Wrapper<List<ChallengeListItem>>> List([FromQuery] GamificationPage<ChallengeList> request)
     {
-        var data = await service.List(request);
-        return new() { Data = data, Count = data.Count };
+        var page = await service.ListPage(request);
+        return new() { Data = page.Items, Count = page.Items.Count, TotalCount = page.TotalCount };
     }
 
     [HttpPost]

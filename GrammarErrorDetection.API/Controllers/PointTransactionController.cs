@@ -1,3 +1,4 @@
+using GrammarErrorDetection.Models.Grammar.Dashboards;
 using System.Security.Claims;
 using GrammarErrorDetection.Models.APIRequest;
 using GrammarErrorDetection.Models.Grammar.PointTransactions;
@@ -19,8 +20,8 @@ public sealed class PointTransactionController(IPointTransactionService service)
     {
         request.Filter ??= new();
         request.Filter.UserId = ReadUserId(request.Filter.UserId);
-        var data = await service.List(request);
-        return new() { Data = data, Count = data.Count };
+        var page = await service.ListPage(request);
+        return new() { Data = page.Items, Count = page.Items.Count, TotalCount = page.TotalCount };
     }
 
     [HttpPost]

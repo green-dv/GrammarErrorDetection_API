@@ -10,6 +10,9 @@ namespace GrammarErrorDetection.Models.Grammar.ModuleNames
 
         public Guid? NextModule { get; set; }
 
+        /// <summary>Nombre del módulo siguiente; solo viene en los listados.</summary>
+        public string? NextModuleName { get; set; }
+
         public bool Active { get; set; } = true;
     }
 }

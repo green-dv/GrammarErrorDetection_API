@@ -1,3 +1,4 @@
+using GrammarErrorDetection.Models.Grammar.Dashboards;
 using System.Data;
 using GrammarErrorDetection.Infrastructure.Database;
 using GrammarErrorDetection.Infrastructure.Interfaces;
@@ -44,6 +45,40 @@ public sealed class EvaluationRepository : IEvaluationRepository
             ], StoredProcedureResult.Cursor("Results"));
         using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
         return table.AsEnumerable().Select(ConvertToEntity.EvaluationListToEntity).ToList();
+    }
+
+    public async Task<PagedList<EvaluationEntity>> ListPage(PaginationDto<EvaluationList> request)
+    {
+        if (executor is not IStoredProcedurePageExecutor pages)
+        {
+            var items = await List(request);
+            return new PagedList<EvaluationEntity>(items, items.Count);
+        }
+
+        RepositoryValidation.ValidatePagination(request);
+        var filter = request.Filter ?? new EvaluationList();
+        var response = await pages.ExecutePagedStoredProcedureAsync("grammar", "Evaluation_List",
+            [
+                new("Id", NpgsqlDbType.Uuid, filter.Id),
+                new("RegistrationId", NpgsqlDbType.Uuid, filter.RegistrationId),
+                new("UserId", NpgsqlDbType.Uuid, filter.UserId),
+                new("Period", NpgsqlDbType.Integer, filter.Period),
+                new("WritingScore", NpgsqlDbType.Integer, filter.WritingScore),
+                new("GrammarScore", NpgsqlDbType.Integer, filter.GrammarScore),
+                new("VocabularyScore", NpgsqlDbType.Integer, filter.VocabularyScore),
+                new("ReadingScore", NpgsqlDbType.Integer, filter.ReadingScore),
+                new("ListeningScore", NpgsqlDbType.Integer, filter.ListeningScore),
+                new("OralScore", NpgsqlDbType.Integer, filter.OralScore),
+                new("AcademicPerformance", NpgsqlDbType.Integer, filter.AcademicPerformance),
+                new("CreatedAt", NpgsqlDbType.Date, filter.CreatedAt),
+                new("Active", NpgsqlDbType.Boolean, filter.Active),
+                new("PageNumber", NpgsqlDbType.Integer, request.PageNumber),
+                new("PageSize", NpgsqlDbType.Integer, request.PageSize),
+                new("Results", NpgsqlDbType.Refcursor, "repository_list", ParameterDirection.InputOutput),
+            new("Total", NpgsqlDbType.Refcursor, "repository_total", ParameterDirection.InputOutput)
+            ]);
+        using var page = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió la página.");
+        return new PagedList<EvaluationEntity>(page.Rows.AsEnumerable().Select(ConvertToEntity.EvaluationListToEntity).ToList(), page.TotalCount);
     }
 
     public async Task<EvaluationEntity> Insert(EvaluationInsert request)

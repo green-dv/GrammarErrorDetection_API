@@ -127,6 +127,7 @@ namespace GrammarErrorDetection.Repositories.Utils
                 Name = (string)row["Name"],
                 Level = (int)row["Level"],
                 NextModule = row.Field<Guid?>("NextModule"),
+                NextModuleName = row.Table.Columns.Contains("NextModuleName") ? row.Field<string?>("NextModuleName") : null,
                 Active = (bool)row["Active"]
             };
         }

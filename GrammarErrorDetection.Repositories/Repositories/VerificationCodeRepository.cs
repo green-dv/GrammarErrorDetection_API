@@ -1,3 +1,4 @@
+using GrammarErrorDetection.Models.Grammar.Dashboards;
 using System.Data;
 using GrammarErrorDetection.Infrastructure.Database;
 using GrammarErrorDetection.Infrastructure.Interfaces;
@@ -44,6 +45,39 @@ namespace GrammarErrorDetection.Repositories.Repositories
 
             using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
             return table.AsEnumerable().Select(ConvertToEntity.VerificationCodeToEntity).ToList();
+        }
+
+        public async Task<PagedList<VerificationCodeEntity>> ListPage(PaginationDto<VerificationCodeList> request)
+        {
+            if (executor is not IStoredProcedurePageExecutor pages)
+            {
+                var items = await List(request);
+                return new PagedList<VerificationCodeEntity>(items, items.Count);
+            }
+
+            RepositoryValidation.ValidatePagination(request);
+            var filter = request.Filter ?? new VerificationCodeList();
+
+            var response = await pages.ExecutePagedStoredProcedureAsync("grammar","VerificationCode_List",
+                [
+                    new("Id", NpgsqlDbType.Uuid, filter.Id),
+                    new("CodeHash", NpgsqlDbType.Varchar, filter.CodeHash),
+                    new("Purpose", NpgsqlDbType.Varchar, filter.Purpose),
+                    new("AttemptCount", NpgsqlDbType.Integer, filter.AttemptCount),
+                    new("ConsumedAt", NpgsqlDbType.Date, filter.ConsumedAt),
+                    new("ExpirationTime", NpgsqlDbType.Date, filter.ExpirationTime),
+                    new("UserId", NpgsqlDbType.Uuid, filter.UserId),
+                    new("Email", NpgsqlDbType.Varchar, filter.Email),
+                    new("Active", NpgsqlDbType.Boolean, filter.Active),
+                    new("CreatedAt", NpgsqlDbType.Date, filter.CreatedAt),
+                    new("PageNumber", NpgsqlDbType.Integer, request.PageNumber),
+                    new("PageSize", NpgsqlDbType.Integer, request.PageSize),
+                    new("Results", NpgsqlDbType.Refcursor, "repository_list", ParameterDirection.InputOutput),
+            new("Total", NpgsqlDbType.Refcursor, "repository_total", ParameterDirection.InputOutput)
+                ]);
+
+            using var page = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió la página.");
+            return new PagedList<VerificationCodeEntity>(page.Rows.AsEnumerable().Select(ConvertToEntity.VerificationCodeToEntity).ToList(), page.TotalCount);
         }
 
         public async Task<VerificationCodeEntity> Insert(VerificationCodeInsert request)

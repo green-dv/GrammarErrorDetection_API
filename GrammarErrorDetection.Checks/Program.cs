@@ -98,6 +98,8 @@ await SentenceRepositoryChecks.Run();
 await NlpServiceChecks.Run();
 await TextUploadChecks.Run();
 await ErrorClassificationChecks.Run();
+await CatalogCrudChecks.Run();
+await LevelsAndConditionsChecks.Run();
 await SupportMaterialChecks.Run();
 await PointTransactionChecks.Run();
 await PointTransactionAuthorizationChecks.Run();

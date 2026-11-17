@@ -1,3 +1,4 @@
+using GrammarErrorDetection.Models.Grammar.Dashboards;
 using System.Data;
 using System.Text.Json;
 using GrammarErrorDetection.Infrastructure.Database;
@@ -37,6 +38,40 @@ public sealed class AchievementRepository(IStoredProcedureExecutor executor) : I
         ], StoredProcedureResult.Cursor("Results"));
         using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
         return table.AsEnumerable().Select(row => Map<AchievementListItem>(row)).ToList();
+    }
+
+    public async Task<PagedList<AchievementListItem>> ListPage(PaginationDto<AchievementList> request)
+    {
+        if (executor is not IStoredProcedurePageExecutor pages)
+        {
+            var items = await List(request);
+            return new PagedList<AchievementListItem>(items, items.Count);
+        }
+
+        RepositoryValidation.ValidatePagination(request);
+        var filter = request.Filter ?? new AchievementList();
+        var response = await pages.ExecutePagedStoredProcedureAsync("grammar", "Achievement_List",
+        [
+            new("Id", NpgsqlDbType.Uuid, filter.Id),
+            new("Name", NpgsqlDbType.Varchar, filter.Name),
+            new("Description", NpgsqlDbType.Text, filter.Description),
+            new("IconLink", NpgsqlDbType.Varchar, filter.IconLink),
+            new("AchievementCategoryId", NpgsqlDbType.Uuid, filter.AchievementCategoryId),
+            new("Points", NpgsqlDbType.Integer, filter.Points),
+            new("IsSecret", NpgsqlDbType.Boolean, filter.IsSecret),
+            new("Active", NpgsqlDbType.Boolean, filter.Active),
+            new("CreatedAt", NpgsqlDbType.Date, filter.CreatedAt),
+            new("PageNumber", NpgsqlDbType.Integer, request.PageNumber),
+            new("PageSize", NpgsqlDbType.Integer, request.PageSize),
+            new("CreatedByUserId", NpgsqlDbType.Uuid, filter.CreatedByUserId),
+            new("AchievementCollectionId", NpgsqlDbType.Uuid, filter.AchievementCollectionId),
+            new("TierOrder", NpgsqlDbType.Integer, filter.TierOrder),
+            new("Results", NpgsqlDbType.Refcursor, "gamification_list", ParameterDirection.InputOutput),
+            new("Total", NpgsqlDbType.Refcursor, "gamification_total", ParameterDirection.InputOutput),
+            new("ConditionTypeId", NpgsqlDbType.Uuid, filter.ConditionTypeId)
+        ]);
+        using var page = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió la página.");
+        return new PagedList<AchievementListItem>(page.Rows.AsEnumerable().Select(row => Map<AchievementListItem>(row)).ToList(), page.TotalCount);
     }
 
     public async Task<AchievementEntity> Insert(AchievementInsert request, Guid createdByUserId)

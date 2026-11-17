@@ -12,4 +12,7 @@ public class ConditionTypeEntity
     public bool Active { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+
+    /// <summary>Condiciones activas de logros y desafíos que usan este tipo; solo viene en los listados.</summary>
+    public long UsageCount { get; set; }
 }

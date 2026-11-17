@@ -1,3 +1,4 @@
+using GrammarErrorDetection.Models.Grammar.Dashboards;
 using System.Data;
 using System.Text.Json;
 using GrammarErrorDetection.Infrastructure.Database;
@@ -36,6 +37,39 @@ public sealed class ChallengeRepository(IStoredProcedureExecutor executor) : ICh
         ], StoredProcedureResult.Cursor("Results"));
         using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
         return table.AsEnumerable().Select(row => Map<ChallengeListItem>(row)).ToList();
+    }
+
+    public async Task<PagedList<ChallengeListItem>> ListPage(PaginationDto<ChallengeList> request)
+    {
+        if (executor is not IStoredProcedurePageExecutor pages)
+        {
+            var items = await List(request);
+            return new PagedList<ChallengeListItem>(items, items.Count);
+        }
+
+        RepositoryValidation.ValidatePagination(request);
+        var filter = request.Filter ?? new ChallengeList();
+        var response = await pages.ExecutePagedStoredProcedureAsync("grammar", "Challenge_List",
+        [
+            new("Id", NpgsqlDbType.Uuid, filter.Id),
+            new("CreatedByUserId", NpgsqlDbType.Uuid, filter.CreatedByUserId),
+            new("Title", NpgsqlDbType.Varchar, filter.Title),
+            new("Description", NpgsqlDbType.Text, filter.Description),
+            new("Instructions", NpgsqlDbType.Text, filter.Instructions),
+            new("Difficulty", NpgsqlDbType.Varchar, filter.Difficulty),
+            new("Points", NpgsqlDbType.Integer, filter.Points),
+            new("StartDate", NpgsqlDbType.Date, filter.StartDate),
+            new("EndDate", NpgsqlDbType.Date, filter.EndDate),
+            new("Status", NpgsqlDbType.Varchar, filter.Status),
+            new("Active", NpgsqlDbType.Boolean, filter.Active),
+            new("CreatedAt", NpgsqlDbType.Date, filter.CreatedAt),
+            new("PageNumber", NpgsqlDbType.Integer, request.PageNumber),
+            new("PageSize", NpgsqlDbType.Integer, request.PageSize),
+            new("Results", NpgsqlDbType.Refcursor, "gamification_list", ParameterDirection.InputOutput),
+            new("Total", NpgsqlDbType.Refcursor, "gamification_total", ParameterDirection.InputOutput)
+        ]);
+        using var page = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió la página.");
+        return new PagedList<ChallengeListItem>(page.Rows.AsEnumerable().Select(row => Map<ChallengeListItem>(row)).ToList(), page.TotalCount);
     }
 
     public async Task<ChallengeEntity> Insert(ChallengeInsert request, Guid createdByUserId)
