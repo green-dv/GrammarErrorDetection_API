@@ -1,3 +1,4 @@
+using GrammarErrorDetection.Models.Grammar.Dashboards;
 using System.Security.Claims;
 using GrammarErrorDetection.Models.APIRequest;
 using GrammarErrorDetection.Models.Grammar.Users;
@@ -38,11 +39,12 @@ namespace GrammarErrorDetection.API.Controllers
         [Authorize(Roles = "Teacher,Coordinator")]
         public async Task<Wrapper<List<UserListItemDto>>> List([FromBody] PaginationDto<UserList> request)
         {
-            var data = await access.SearchAsync(Actor(), request);
+            var page = await access.SearchPageAsync(Actor(), request);
             return new Wrapper<List<UserListItemDto>>
             {
-                Data = data,
-                Count = data.Count
+                Data = page.Items,
+                Count = page.Items.Count,
+                TotalCount = page.TotalCount
             };
         }
 

@@ -1,3 +1,4 @@
+using GrammarErrorDetection.Models.Grammar.Dashboards;
 using GrammarErrorDetection.Models.APIRequest;
 using GrammarErrorDetection.Models.Grammar.Registrations;
 using GrammarErrorDetection.Services.Interfaces;
@@ -15,21 +16,25 @@ namespace GrammarErrorDetection.API.Controllers
     {
         private readonly IRegistrationService service;
 
-        public RegistrationController(IRegistrationService service)
+        private readonly ILogger<RegistrationController> logger;
+
+        public RegistrationController(IRegistrationService service, ILogger<RegistrationController> logger)
         {
             ArgumentNullException.ThrowIfNull(service);
             this.service = service;
+            this.logger = logger;
         }
 
         [HttpGet]
         [Authorize(Roles = "Coordinator")]
         public async Task<Wrapper<List<RegistrationListItemDto>>> List([FromQuery] PaginationDto<RegistrationSummaryList> request)
         {
-            var data = await service.List(request);
+            var page = await service.ListPage(request);
             return new Wrapper<List<RegistrationListItemDto>>
             {
-                Data = data,
-                Count = data.Count
+                Data = page.Items,
+                Count = page.Items.Count,
+                TotalCount = page.TotalCount
             };
         }
 
@@ -37,8 +42,8 @@ namespace GrammarErrorDetection.API.Controllers
         [Authorize(Roles = "Student")]
         public async Task<Wrapper<List<RegistrationListItemDto>>> ListMine([FromQuery] PaginationDto<RegistrationSummaryList> request)
         {
-            var data = await service.ListMine(StudentId(), request);
-            return new Wrapper<List<RegistrationListItemDto>> { Data = data, Count = data.Count };
+            var page = await service.ListMinePage(StudentId(), request);
+            return new Wrapper<List<RegistrationListItemDto>> { Data = page.Items, Count = page.Items.Count, TotalCount = page.TotalCount };
         }
 
         [HttpGet("available-courses")]
@@ -54,8 +59,8 @@ namespace GrammarErrorDetection.API.Controllers
         [Authorize(Roles = "Student")]
         public async Task<Wrapper<List<StudentCourseHistoryDto>>> ListMyCourses([FromQuery] StudentCourseHistoryQuery request)
         {
-            var data = await service.ListStudentCourses(StudentId(), request);
-            return new Wrapper<List<StudentCourseHistoryDto>> { Data = data, Count = data.Count };
+            var page = await service.ListStudentCoursesPage(StudentId(), request);
+            return new Wrapper<List<StudentCourseHistoryDto>> { Data = page.Items, Count = page.Items.Count, TotalCount = page.TotalCount };
         }
 
         [HttpGet("students/{studentId:guid}/courses")]
@@ -63,8 +68,8 @@ namespace GrammarErrorDetection.API.Controllers
         public async Task<Wrapper<List<StudentCourseHistoryDto>>> ListStudentCourses(
             [FromRoute, NotEmptyGuid] Guid studentId, [FromQuery] StudentCourseHistoryQuery request)
         {
-            var data = await service.ListStudentCourses(studentId, request);
-            return new Wrapper<List<StudentCourseHistoryDto>> { Data = data, Count = data.Count };
+            var page = await service.ListStudentCoursesPage(studentId, request);
+            return new Wrapper<List<StudentCourseHistoryDto>> { Data = page.Items, Count = page.Items.Count, TotalCount = page.TotalCount };
         }
 
         [HttpPost("apply")]
@@ -110,6 +115,8 @@ namespace GrammarErrorDetection.API.Controllers
             [FromBody] RegistrationGenerationRequest request)
         {
             var data = await service.GenerateNextBimester(request);
+            logger.LogInformation("Generación {Year}-{Bimester}: {Created} cursos creados, {Reused} reutilizados, {Registrations} inscripciones, {Skipped} omitidas",
+                request.Year, request.Bimester, data.CreatedClassIds.Count, data.ReusedClassIds.Count, data.CreatedRegistrationIds.Count, data.Skipped.Count);
             return Ok(new Wrapper<RegistrationGenerationResult> { Data = data });
         }
     }

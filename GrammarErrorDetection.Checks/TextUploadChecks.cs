@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using GrammarErrorDetection.Models.APIRequest;
+using GrammarErrorDetection.Models.Grammar.Dashboards;
 using GrammarErrorDetection.Models.Grammar.ErrorClassifications;
 using GrammarErrorDetection.Models.Grammar.SentenceErrors;
 using GrammarErrorDetection.Models.Grammar.Sentences;
@@ -136,8 +137,10 @@ internal static class TextUploadChecks
         public List<TextEntity> Texts { get; } = [];
         public List<SentenceEntity> Sentences { get; } = [];
         public List<SentenceErrorEntity> Errors { get; } = [];
-        public Task<List<ErrorClassificationEntity>> List(PaginationDto<ErrorClassificationList> request)
+        public Task<PagedList<ErrorClassificationEntity>> List(PaginationDto<ErrorClassificationList> request)
             => throw new NotSupportedException("Este doble solo comprueba la resolución de categorías por nombre.");
+        public Task<ErrorClassificationEntity> Insert(ErrorClassificationInsert request) => throw new NotSupportedException();
+        public Task<ErrorClassificationEntity> Update(ErrorClassificationUpdate request) => throw new NotSupportedException();
         public Task<List<ErrorClassificationEntity>> FindByName(string name)
         {
             CategoryCalls++;

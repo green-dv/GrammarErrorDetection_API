@@ -1,4 +1,5 @@
 ﻿using System.Data;
+using GrammarErrorDetection.Models.Grammar.Dashboards;
 using GrammarErrorDetection.Infrastructure.Database;
 using GrammarErrorDetection.Infrastructure.Interfaces;
 using GrammarErrorDetection.Models.APIRequest;
@@ -46,6 +47,43 @@ namespace GrammarErrorDetection.Repositories.Repositories
 
             using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
             return table.AsEnumerable().Select(ConvertToDto.UserListToEntity).ToList();
+        }
+
+        public async Task<PagedList<UserEntity>> ListPage(PaginationDto<UserList> request)
+        {
+            if (executor is not IStoredProcedurePageExecutor pages)
+            {
+                var items = await List(request);
+                return new PagedList<UserEntity>(items, items.Count);
+            }
+
+            RepositoryValidation.ValidatePagination(request);
+            var filter = request.Filter ?? new UserList();
+
+            // Una sola llamada: la página filtrada ("Users") y el total sin paginar ("Total").
+            var response = await pages.ExecutePagedStoredProcedureAsync(
+                "grammar",
+                "User_List",
+                [
+                    new("FirstName", NpgsqlDbType.Varchar, filter.FirstName),
+                    new("LastName", NpgsqlDbType.Varchar, filter.LastName),
+                    new("CI", NpgsqlDbType.Varchar, filter.CI),
+                    new("Phone", NpgsqlDbType.Varchar, filter.Phone),
+                    new("Email", NpgsqlDbType.Varchar, filter.Email),
+                    new("CreatedAt", NpgsqlDbType.Date, filter.CreatedAt),
+                    new("RoleId", NpgsqlDbType.Uuid, filter.RoleId),
+                    new("Active", NpgsqlDbType.Boolean, filter.Active),
+                    new("PageNumber", NpgsqlDbType.Integer, request.PageNumber),
+                    new("PageSize", NpgsqlDbType.Integer, request.PageSize),
+                    new("Users", NpgsqlDbType.Refcursor, "repository_list", ParameterDirection.InputOutput),
+                    new("CurrentModuleNameId", NpgsqlDbType.Uuid, filter.CurrentModuleNameId),
+                    new("ClassId", NpgsqlDbType.Uuid, filter.ClassId),
+                    new("Total", NpgsqlDbType.Refcursor, "repository_total", ParameterDirection.InputOutput)
+                ],
+                "Users");
+
+            using var page = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió la página.");
+            return new PagedList<UserEntity>(page.Rows.AsEnumerable().Select(ConvertToDto.UserListToEntity).ToList(), page.TotalCount);
         }
 
         public async Task<UserEntity> Insert(UserInsert request)

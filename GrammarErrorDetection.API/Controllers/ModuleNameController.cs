@@ -22,11 +22,12 @@ namespace GrammarErrorDetection.API.Controllers
         [HttpGet]
         public async Task<Wrapper<List<ModuleNameEntity>>> List([FromQuery] PaginationDto<ModuleNameList> request)
         {
-            var data = await service.List(request);
+            var page = await service.ListPage(request);
             return new Wrapper<List<ModuleNameEntity>>
             {
-                Data = data,
-                Count = data.Count
+                Data = page.Items,
+                Count = page.Items.Count,
+                TotalCount = page.TotalCount
             };
         }
 

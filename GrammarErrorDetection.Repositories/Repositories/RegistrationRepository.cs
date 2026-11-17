@@ -1,3 +1,4 @@
+using GrammarErrorDetection.Models.Grammar.Dashboards;
 using System.Data;
 using GrammarErrorDetection.Infrastructure.Database;
 using GrammarErrorDetection.Infrastructure.Interfaces;
@@ -24,6 +25,36 @@ namespace GrammarErrorDetection.Repositories.Repositories
             RepositoryValidation.ValidatePagination(request);
             using var table = await ReadListPage(request);
             return table.AsEnumerable().Select(ConvertToDto.RegistrationListToDto).ToList();
+        }
+
+        public async Task<PagedList<RegistrationListItemDto>> ListSummaryPage(PaginationDto<RegistrationSummaryList> request)
+        {
+            if (executor is not IStoredProcedurePageExecutor pages)
+            {
+                var items = await ListSummary(request);
+                return new PagedList<RegistrationListItemDto>(items, items.Count);
+            }
+
+            RepositoryValidation.ValidatePagination(request);
+            var filter = request.Filter ?? new RegistrationSummaryList();
+
+            // Una sola llamada: la página filtrada ("Results") y el total sin paginar ("Total").
+            var response = await pages.ExecutePagedStoredProcedureAsync(
+                "grammar",
+                "Registration_List",
+                [
+                    new("UserId", NpgsqlDbType.Uuid, filter.UserId),
+                    new("ModuleNameId", NpgsqlDbType.Uuid, filter.ModuleNameId),
+                    new("RegistrationDate", NpgsqlDbType.Date, filter.RegistrationDate),
+                    new("Status", NpgsqlDbType.Varchar, filter.Status),
+                    new("PageNumber", NpgsqlDbType.Integer, request.PageNumber),
+                    new("PageSize", NpgsqlDbType.Integer, request.PageSize),
+                    new("Results", NpgsqlDbType.Refcursor, "repository_list", ParameterDirection.InputOutput),
+                    new("Total", NpgsqlDbType.Refcursor, "repository_total", ParameterDirection.InputOutput)
+                ]);
+
+            using var page = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió la página.");
+            return new PagedList<RegistrationListItemDto>(page.Rows.AsEnumerable().Select(ConvertToDto.RegistrationListToDto).ToList(), page.TotalCount);
         }
 
         private async Task<DataTable> ReadListPage(PaginationDto<RegistrationSummaryList> request)

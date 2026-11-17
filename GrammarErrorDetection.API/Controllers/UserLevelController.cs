@@ -14,7 +14,23 @@ public sealed class UserLevelController(IUserLevelService service) : ControllerB
     [HttpGet]
     public async Task<Wrapper<List<UserLevelListItemDto>>> List([FromQuery] PaginationDto<UserLevelList> request)
     {
-        var data = await service.List(request);
-        return new() { Data = data, Count = data.Count };
+        var page = await service.List(request);
+        return new() { Data = page.Items, Count = page.Items.Count, TotalCount = page.TotalCount };
     }
+
+    // La lectura es de cualquier usuario autenticado (el perfil muestra los niveles); solo el coordinador los gestiona.
+    // Al crear, editar o deshabilitar se reasigna el nivel de todos los usuarios.
+    [HttpPost]
+    [Authorize(Roles = "Coordinator")]
+    public async Task<Wrapper<UserLevelListItemDto>> Insert([FromBody] UserLevelInsert request)
+    {
+        var data = await service.Insert(request);
+        Response.StatusCode = StatusCodes.Status201Created;
+        return new() { Data = data };
+    }
+
+    [HttpPut]
+    [Authorize(Roles = "Coordinator")]
+    public async Task<Wrapper<UserLevelListItemDto>> Update([FromBody] UserLevelUpdate request)
+        => new() { Data = await service.Update(request) };
 }

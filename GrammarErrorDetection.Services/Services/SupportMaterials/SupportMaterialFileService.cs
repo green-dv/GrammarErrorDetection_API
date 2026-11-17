@@ -6,11 +6,12 @@ using GrammarErrorDetection.Models.Grammar.FileTypes;
 using GrammarErrorDetection.Models.Grammar.SupportMaterials;
 using GrammarErrorDetection.Services.Configuration;
 using GrammarErrorDetection.Services.Interfaces;
+using Microsoft.Extensions.Logging;
 
 namespace GrammarErrorDetection.Services.Services.SupportMaterials;
 
 public sealed partial class SupportMaterialFileService(HttpClient client, SupportMaterialFileOptions options,
-    ISupportMaterialService materials, IFileTypeService fileTypes) : ISupportMaterialFileService
+    ISupportMaterialService materials, IFileTypeService fileTypes, ILogger<SupportMaterialFileService> logger) : ISupportMaterialFileService
 {
     public async Task<MaterialFileUploadResult> Store(Stream content, string fileName, long length,
         CancellationToken cancellationToken = default)
@@ -55,6 +56,7 @@ public sealed partial class SupportMaterialFileService(HttpClient client, Suppor
             using var response = await client.SendAsync(message, cancellationToken);
             response.EnsureSuccessStatusCode();
             completed = true;
+            logger.LogInformation("Archivo creado {StoredName} ({Size} bytes)", storedName, size);
             return new(publicUri.AbsoluteUri, size);
         }
         finally

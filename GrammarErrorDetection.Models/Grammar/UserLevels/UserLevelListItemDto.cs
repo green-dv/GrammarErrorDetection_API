@@ -10,4 +10,7 @@ public sealed class UserLevelListItemDto
     public DateTime UpdatedAt { get; set; }
     public bool Active { get; set; }
     public long TotalCount { get; set; }
+
+    /// <summary>Usuarios que tienen hoy este nivel; solo viene en los listados.</summary>
+    public long UserCount { get; set; }
 }

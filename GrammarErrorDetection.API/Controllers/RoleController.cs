@@ -22,12 +22,8 @@ namespace GrammarErrorDetection.API.Controllers
         [HttpGet]
         public async Task<Wrapper<List<RoleEntity>>> List([FromQuery] PaginationDto<RoleList> request)
         {
-            var data = await service.List(request);
-            return new Wrapper<List<RoleEntity>>
-            {
-                Data = data,
-                Count = data.Count
-            };
+            var page = await service.ListPage(request);
+            return new() { Data = page.Items, Count = page.Items.Count, TotalCount = page.TotalCount };
         }
         [HttpPost]
         [Authorize(Roles = "Coordinator")]

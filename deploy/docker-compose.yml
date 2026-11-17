@@ -1,0 +1,40 @@
+# Se copia a ~/apps/GrammarErrorDetection/api/ en el VPS en cada deploy (lo hace el workflow).
+# El .env de esa carpeta solo existe en el VPS (plantilla: deploy/env.production.example).
+# El proxy (Caddy) debe enviar /api/* a api:8080 SIN quitar el prefijo.
+services:
+  api:
+    image: ghcr.io/green-dv/grammarerrordetection_api:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      # Detras de Caddy: toma la IP real (rate limiter) y el esquema https de X-Forwarded-*.
+      # Valido porque la API no publica puertos en el host: solo el proxy llega a ella por app-net.
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      LOG_DIR: /logs
+    volumes:
+      - api_logs:/logs
+      - api_data:/data
+    networks: [app-net]
+    healthcheck:
+      # La imagen aspnet no trae curl/wget: se hace la peticion con bash.
+      test:
+        - CMD
+        - bash
+        - -c
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/8080 &&
+          printf 'GET /health HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3 &&
+          head -n1 <&3 | grep -q ' 200 '
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+
+volumes:
+  api_logs:
+  api_data:
+
+networks:
+  app-net:
+    external: true

@@ -1,3 +1,4 @@
+using GrammarErrorDetection.Models.Grammar.Dashboards;
 using GrammarErrorDetection.Models.APIRequest;
 using GrammarErrorDetection.Models.Grammar.SupportMaterials;
 using GrammarErrorDetection.Models.Grammar.Validation;
@@ -47,8 +48,8 @@ public sealed class SupportMaterialController(ISupportMaterialService service,
     [HttpGet]
     public async Task<Wrapper<List<SupportMaterialListItemDto>>> List([FromQuery] PaginationDto<SupportMaterialList> request)
     {
-        var data = await service.List(request, User);
-        return new Wrapper<List<SupportMaterialListItemDto>> { Data = data, Count = data.Count };
+        var page = await service.ListPage(request, User);
+        return new Wrapper<List<SupportMaterialListItemDto>> { Data = page.Items, Count = page.Items.Count, TotalCount = page.TotalCount };
     }
 
     [HttpGet("{id:guid}")]

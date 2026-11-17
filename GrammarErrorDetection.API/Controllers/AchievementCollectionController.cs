@@ -15,8 +15,8 @@ public sealed class AchievementCollectionController(IAchievementCollectionServic
     [HttpGet]
     public async Task<Wrapper<List<AchievementCollectionEntity>>> List([FromQuery] GamificationPage<AchievementCollectionList> request)
     {
-        var data = await service.List(request);
-        return new() { Data = data, Count = data.Count };
+        var page = await service.ListPage(request);
+        return new() { Data = page.Items, Count = page.Items.Count, TotalCount = page.TotalCount };
     }
 
     [HttpPost]
