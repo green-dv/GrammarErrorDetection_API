@@ -1,3 +1,4 @@
+using GrammarErrorDetection.Models.Grammar.Dashboards;
 using GrammarErrorDetection.Models.APIRequest;
 using GrammarErrorDetection.Models.Grammar.Gamification;
 
@@ -6,6 +7,11 @@ namespace GrammarErrorDetection.Services.Interfaces;
 public interface IAchievementService
 {
     Task<List<AchievementListItem>> List(PaginationDto<AchievementList> request);
+    async Task<PagedList<AchievementListItem>> ListPage(PaginationDto<AchievementList> request)
+    {
+        var items = await List(request);
+        return new PagedList<AchievementListItem>(items, items.Count);
+    }
     Task<AchievementEntity> Insert(AchievementInsert request, Guid createdByUserId);
     Task<AchievementEntity> Update(AchievementUpdate request);
     Task<AchievementEntity> InsertWithImage(AchievementInsert request, Guid createdByUserId, Stream? image, CancellationToken cancellationToken = default);

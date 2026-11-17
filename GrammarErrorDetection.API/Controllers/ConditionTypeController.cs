@@ -15,8 +15,8 @@ public sealed class ConditionTypeController(IConditionTypeService service) : Con
     [HttpGet]
     public async Task<Wrapper<List<ConditionTypeEntity>>> List([FromQuery] GamificationPage<ConditionTypeList> request)
     {
-        var data = await service.List(request);
-        return new() { Data = data, Count = data.Count };
+        var page = await service.List(request);
+        return new() { Data = page.Items, Count = page.Items.Count, TotalCount = page.TotalCount };
     }
 
     [HttpPost]

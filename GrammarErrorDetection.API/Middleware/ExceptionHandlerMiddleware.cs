@@ -40,12 +40,17 @@ namespace GrammarErrorDetection.API.Middleware
             catch (Exception exception)
             {
                 var (statusCode, message) = GetExceptionResponse(exception);
-                _logger.LogError(
-                    exception,
-                    "Error al procesar {Method} {Path}. TraceId: {TraceId}",
-                    context.Request.Method,
-                    context.Request.Path,
-                    context.TraceIdentifier);
+                // Errores del cliente (validación, 404, 409...): una línea sin pila. Los 5xx sí llevan la excepción completa.
+                if (statusCode >= 500)
+                    _logger.LogError(
+                        exception,
+                        "Error {StatusCode} en {Method} {Path}: {Message}",
+                        statusCode, context.Request.Method, context.Request.Path, exception.Message);
+                else
+                    _logger.LogWarning(
+                        "Rechazado {StatusCode} en {Method} {Path}: {ExceptionType}: {Message}",
+                        statusCode, context.Request.Method, context.Request.Path, exception.GetType().Name,
+                        exception.Message.ReplaceLineEndings(" ").Split("  ")[0]);
 
                 if (context.Response.HasStarted)
                 {

@@ -1,3 +1,4 @@
+using GrammarErrorDetection.Models.Grammar.Dashboards;
 using System.Security.Claims;
 using GrammarErrorDetection.Models.APIRequest;
 using GrammarErrorDetection.Models.Grammar.Texts;
@@ -16,8 +17,8 @@ public sealed class TextController(ITextService service) : ControllerBase
     public async Task<Wrapper<List<TextListItemDto>>> List([FromQuery] PaginationDto<TextList> request)
     {
         var canViewAll = User.IsInRole("Teacher") || User.IsInRole("Coordinator");
-        var data = await service.List(UserId(), canViewAll, request);
-        return new Wrapper<List<TextListItemDto>> { Data = data, Count = data.Count };
+        var page = await service.ListPage(UserId(), canViewAll, request);
+        return new Wrapper<List<TextListItemDto>> { Data = page.Items, Count = page.Items.Count, TotalCount = page.TotalCount };
     }
 
     [HttpPost("upload")]

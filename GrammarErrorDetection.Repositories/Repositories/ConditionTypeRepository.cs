@@ -3,6 +3,7 @@ using System.Text.Json;
 using GrammarErrorDetection.Infrastructure.Database;
 using GrammarErrorDetection.Infrastructure.Interfaces;
 using GrammarErrorDetection.Models.APIRequest;
+using GrammarErrorDetection.Models.Grammar.Dashboards;
 using GrammarErrorDetection.Models.Grammar.Gamification;
 using GrammarErrorDetection.Repositories.Interfaces;
 using GrammarErrorDetection.Repositories.Utils;
@@ -10,13 +11,14 @@ using NpgsqlTypes;
 
 namespace GrammarErrorDetection.Repositories.Repositories;
 
-public sealed class ConditionTypeRepository(IStoredProcedureExecutor executor) : IConditionTypeRepository
+public sealed class ConditionTypeRepository(IStoredProcedureExecutor executor, IStoredProcedurePageExecutor pages) : IConditionTypeRepository
 {
-    public async Task<List<ConditionTypeEntity>> List(PaginationDto<ConditionTypeList> request)
+    public async Task<PagedList<ConditionTypeEntity>> List(PaginationDto<ConditionTypeList> request)
     {
         RepositoryValidation.ValidatePagination(request);
         var filter = request.Filter ?? new ConditionTypeList();
-        var response = await executor.ExecuteStoredProcedureAsync("grammar", "ConditionType_List",
+        // Una sola llamada: la página filtrada ("Results") y el total sin paginar ("Total").
+        var response = await pages.ExecutePagedStoredProcedureAsync("grammar", "ConditionType_List",
         [
             new("Id", NpgsqlDbType.Uuid, filter.Id),
             new("Code", NpgsqlDbType.Varchar, filter.Code),
@@ -27,10 +29,11 @@ public sealed class ConditionTypeRepository(IStoredProcedureExecutor executor) :
             new("CreatedAt", NpgsqlDbType.Date, filter.CreatedAt),
             new("PageNumber", NpgsqlDbType.Integer, request.PageNumber),
             new("PageSize", NpgsqlDbType.Integer, request.PageSize),
-            new("Results", NpgsqlDbType.Refcursor, "gamification_list", ParameterDirection.InputOutput)
-        ], StoredProcedureResult.Cursor("Results"));
-        using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
-        return table.AsEnumerable().Select(row => Map<ConditionTypeEntity>(row)).ToList();
+            new("Results", NpgsqlDbType.Refcursor, "conditiontype_list", ParameterDirection.InputOutput),
+            new("Total", NpgsqlDbType.Refcursor, "conditiontype_total", ParameterDirection.InputOutput)
+        ]);
+        using var page = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió la página.");
+        return new PagedList<ConditionTypeEntity>(page.Rows.AsEnumerable().Select(row => Map<ConditionTypeEntity>(row)).ToList(), page.TotalCount);
     }
 
     public async Task<ConditionTypeEntity> Insert(ConditionTypeInsert request)
@@ -79,6 +82,7 @@ public sealed class ConditionTypeRepository(IStoredProcedureExecutor executor) :
         item.Active = row.Field<bool>("Active");
         item.CreatedAt = row.Field<DateTime>("CreatedAt");
         item.UpdatedAt = row.Field<DateTime>("UpdatedAt");
+        item.UsageCount = row.Table.Columns.Contains("UsageCount") ? row.Field<long>("UsageCount") : 0;
         return item;
     }
 

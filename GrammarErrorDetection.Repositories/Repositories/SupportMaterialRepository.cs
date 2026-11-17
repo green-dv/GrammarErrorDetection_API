@@ -1,3 +1,4 @@
+using GrammarErrorDetection.Models.Grammar.Dashboards;
 using System.Data;
 using GrammarErrorDetection.Infrastructure.Database;
 using GrammarErrorDetection.Infrastructure.Interfaces;
@@ -45,6 +46,40 @@ public sealed class SupportMaterialRepository : ISupportMaterialRepository
             ], StoredProcedureResult.Cursor("Results"));
         using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
         return table.AsEnumerable().Select(ConvertToDto.SupportMaterialListToDto).ToList();
+    }
+
+    public async Task<PagedList<SupportMaterialListItemDto>> ListPage(PaginationDto<SupportMaterialList> request, Guid? viewerId = null)
+    {
+        if (executor is not IStoredProcedurePageExecutor pages)
+        {
+            var items = await List(request, viewerId);
+            return new PagedList<SupportMaterialListItemDto>(items, items.Count);
+        }
+
+        RepositoryValidation.ValidatePagination(request);
+        if (viewerId == Guid.Empty) throw new ArgumentException("El usuario que consulta no puede estar vacío.", nameof(viewerId));
+        var filter = request.Filter ?? new SupportMaterialList();
+        var response = await pages.ExecutePagedStoredProcedureAsync("grammar", "SupportMaterial_List",
+            [
+                new("Id", NpgsqlDbType.Uuid, filter.Id),
+                new("Name", NpgsqlDbType.Varchar, filter.Name),
+                new("ErrorClassificationId", NpgsqlDbType.Uuid, filter.ErrorClassificationId),
+                new("UploadDate", NpgsqlDbType.Date, filter.UploadDate),
+                new("FileLink", NpgsqlDbType.Text, filter.FileLink),
+                new("FileTypeId", NpgsqlDbType.Uuid, filter.FileTypeId),
+                new("FileSize", NpgsqlDbType.Bigint, filter.FileSize),
+                new("UploadedBy", NpgsqlDbType.Uuid, filter.UploadedBy),
+                new("Active", NpgsqlDbType.Boolean, filter.Active),
+                new("CreatedAt", NpgsqlDbType.Date, filter.CreatedAt),
+                new("PageNumber", NpgsqlDbType.Integer, request.PageNumber),
+                new("PageSize", NpgsqlDbType.Integer, request.PageSize),
+                new("Results", NpgsqlDbType.Refcursor, "supportmaterial_list", ParameterDirection.InputOutput),
+                new("ViewerId", NpgsqlDbType.Uuid, viewerId),
+                new("OnlyHelpful", NpgsqlDbType.Boolean, filter.OnlyHelpful),
+                new("Total", NpgsqlDbType.Refcursor, "supportmaterial_total", ParameterDirection.InputOutput)
+            ]);
+        using var page = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió la página.");
+        return new PagedList<SupportMaterialListItemDto>(page.Rows.AsEnumerable().Select(ConvertToDto.SupportMaterialListToDto).ToList(), page.TotalCount);
     }
 
     public async Task<List<SupportMaterialRecommendationRow>> ListRecommendations(Guid userId, Guid? classId,

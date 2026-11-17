@@ -1,3 +1,4 @@
+using GrammarErrorDetection.Models.Grammar.Dashboards;
 using System.Data;
 using GrammarErrorDetection.Infrastructure.Database;
 using GrammarErrorDetection.Infrastructure.Interfaces;
@@ -27,6 +28,31 @@ public sealed class AchievementCollectionRepository(IStoredProcedureExecutor exe
         ], StoredProcedureResult.Cursor("Results"));
         using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
         return table.AsEnumerable().Select(Map).ToList();
+    }
+
+    public async Task<PagedList<AchievementCollectionEntity>> ListPage(PaginationDto<AchievementCollectionList> request)
+    {
+        if (executor is not IStoredProcedurePageExecutor pages)
+        {
+            var items = await List(request);
+            return new PagedList<AchievementCollectionEntity>(items, items.Count);
+        }
+
+        RepositoryValidation.ValidatePagination(request);
+        var filter = request.Filter ?? new AchievementCollectionList();
+        var response = await pages.ExecutePagedStoredProcedureAsync("grammar", "AchievementCollection_List",
+        [
+            new("Id", NpgsqlDbType.Uuid, filter.Id),
+            new("Name", NpgsqlDbType.Varchar, filter.Name),
+            new("CreatedByUserId", NpgsqlDbType.Uuid, filter.CreatedByUserId),
+            new("Active", NpgsqlDbType.Boolean, filter.Active),
+            new("PageNumber", NpgsqlDbType.Integer, request.PageNumber),
+            new("PageSize", NpgsqlDbType.Integer, request.PageSize),
+            new("Results", NpgsqlDbType.Refcursor, "achievementcollection_list", ParameterDirection.InputOutput),
+            new("Total", NpgsqlDbType.Refcursor, "achievementcollection_total", ParameterDirection.InputOutput)
+        ]);
+        using var page = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió la página.");
+        return new PagedList<AchievementCollectionEntity>(page.Rows.AsEnumerable().Select(Map).ToList(), page.TotalCount);
     }
 
     public async Task<AchievementCollectionEntity> Insert(AchievementCollectionInsert request, Guid createdByUserId)

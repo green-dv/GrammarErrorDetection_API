@@ -1,3 +1,4 @@
+using GrammarErrorDetection.Models.Grammar.Dashboards;
 using System.Data;
 using System.Text.Json;
 using GrammarErrorDetection.Infrastructure.Database;
@@ -30,6 +31,31 @@ public sealed class UserAchievementRepository(IStoredProcedureExecutor executor)
         ], StoredProcedureResult.Cursor("Results"));
         using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
         return table.AsEnumerable().Select(Map).ToList();
+    }
+
+    public async Task<PagedList<UserAchievementBestItem>> ListBestPage(Guid userId, PaginationDto<UserAchievementBestList> request)
+    {
+        if (executor is not IStoredProcedurePageExecutor pages)
+        {
+            var items = await ListBest(userId, request);
+            return new PagedList<UserAchievementBestItem>(items, items.Count);
+        }
+
+        RepositoryValidation.ValidatePagination(request);
+        if (userId == Guid.Empty) throw new ArgumentException("El usuario es obligatorio.", nameof(userId));
+        var filter = request.Filter ?? new UserAchievementBestList();
+        var response = await pages.ExecutePagedStoredProcedureAsync("grammar", "UserAchievement_Best_List",
+        [
+            new("UserId", NpgsqlDbType.Uuid, userId),
+            new("AchievementCollectionId", NpgsqlDbType.Uuid, filter.AchievementCollectionId),
+            new("PageNumber", NpgsqlDbType.Integer, request.PageNumber),
+            new("PageSize", NpgsqlDbType.Integer, request.PageSize),
+            new("Results", NpgsqlDbType.Refcursor, "userachievement_best_list", ParameterDirection.InputOutput),
+            new("AchievementCategoryId", NpgsqlDbType.Uuid, filter.AchievementCategoryId),
+            new("Total", NpgsqlDbType.Refcursor, "userachievement_best_total", ParameterDirection.InputOutput)
+        ]);
+        using var page = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió la página.");
+        return new PagedList<UserAchievementBestItem>(page.Rows.AsEnumerable().Select(Map).ToList(), page.TotalCount);
     }
 
     private static UserAchievementBestItem Map(DataRow row)

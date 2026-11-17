@@ -1,3 +1,4 @@
+using GrammarErrorDetection.Models.Grammar.Dashboards;
 using GrammarErrorDetection.Models.APIRequest;
 using GrammarErrorDetection.Models.Grammar.Gamification;
 using GrammarErrorDetection.Models.Grammar.Validation;
@@ -18,7 +19,7 @@ public sealed class UserAchievementController(IUserAchievementService service) :
         [FromQuery, BindRequired, NotEmptyGuid] Guid userId,
         [FromQuery] GamificationPage<UserAchievementBestList> request)
     {
-        var data = await service.ListBest(userId, request);
-        return new() { Data = data, Count = data.Count };
+        var page = await service.ListBestPage(userId, request);
+        return new() { Data = page.Items, Count = page.Items.Count, TotalCount = page.TotalCount };
     }
 }

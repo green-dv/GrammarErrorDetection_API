@@ -1,3 +1,4 @@
+using GrammarErrorDetection.Models.Grammar.Dashboards;
 using System.Data;
 using GrammarErrorDetection.Infrastructure.Database;
 using GrammarErrorDetection.Infrastructure.Interfaces;
@@ -39,6 +40,34 @@ namespace GrammarErrorDetection.Repositories.Repositories
 
             using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
             return table.AsEnumerable().Select(ConvertToEntity.RoleToEntity).ToList();
+        }
+
+        public async Task<PagedList<RoleEntity>> ListPage(PaginationDto<RoleList> request)
+        {
+            if (executor is not IStoredProcedurePageExecutor pages)
+            {
+                var items = await List(request);
+                return new PagedList<RoleEntity>(items, items.Count);
+            }
+
+            RepositoryValidation.ValidatePagination(request);
+            var filter = request.Filter ?? new RoleList();
+
+            var response = await pages.ExecutePagedStoredProcedureAsync(
+                "grammar",
+                "Role_List",
+                [
+                    new("Id", NpgsqlDbType.Uuid, filter.Id),
+                    new("Name", NpgsqlDbType.Varchar, filter.Name),
+                    new("Active", NpgsqlDbType.Boolean, filter.Active),
+                    new("PageNumber", NpgsqlDbType.Integer, request.PageNumber),
+                    new("PageSize", NpgsqlDbType.Integer, request.PageSize),
+                    new("Results", NpgsqlDbType.Refcursor, "repository_list", ParameterDirection.InputOutput),
+            new("Total", NpgsqlDbType.Refcursor, "repository_total", ParameterDirection.InputOutput)
+                ]);
+
+            using var page = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió la página.");
+            return new PagedList<RoleEntity>(page.Rows.AsEnumerable().Select(ConvertToEntity.RoleToEntity).ToList(), page.TotalCount);
         }
 
         public async Task<RoleEntity> Insert(RoleInsert request)

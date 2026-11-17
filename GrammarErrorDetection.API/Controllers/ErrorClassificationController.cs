@@ -15,11 +15,28 @@ public sealed class ErrorClassificationController(IErrorClassificationService se
     [HttpGet]
     public async Task<Wrapper<List<ErrorClassificationEntity>>> List([FromQuery] PaginationDto<ErrorClassificationList> request)
     {
-        var data = await service.List(request);
-        return new() { Data = data, Count = data.Count };
+        var page = await service.List(request);
+        return new() { Data = page.Items, Count = page.Items.Count, TotalCount = page.TotalCount };
     }
 
     [HttpGet("{id:guid}")]
     public async Task<Wrapper<ErrorClassificationEntity>> Get([FromRoute, NotEmptyGuid] Guid id)
         => new() { Data = await service.Get(id) };
+
+    // La lectura queda abierta a cualquier usuario autenticado (filtros de materiales y reportes);
+    // solo el coordinador crea, edita o deshabilita categorías.
+    [HttpPost]
+    [Authorize(Roles = "Coordinator")]
+    public async Task<Wrapper<ErrorClassificationEntity>> Insert([FromBody] ErrorClassificationInsert request)
+    {
+        var data = await service.Insert(request);
+        Response.StatusCode = StatusCodes.Status201Created;
+        return new() { Data = data };
+    }
+
+    /// <summary>Edita la categoría; Active = false la deshabilita y Active = true la reactiva.</summary>
+    [HttpPut]
+    [Authorize(Roles = "Coordinator")]
+    public async Task<Wrapper<ErrorClassificationEntity>> Update([FromBody] ErrorClassificationUpdate request)
+        => new() { Data = await service.Update(request) };
 }

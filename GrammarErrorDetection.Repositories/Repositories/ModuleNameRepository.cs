@@ -2,6 +2,7 @@ using System.Data;
 using GrammarErrorDetection.Infrastructure.Database;
 using GrammarErrorDetection.Infrastructure.Interfaces;
 using GrammarErrorDetection.Models.APIRequest;
+using GrammarErrorDetection.Models.Grammar.Dashboards;
 using GrammarErrorDetection.Models.Grammar.ModuleNames;
 using GrammarErrorDetection.Repositories.Interfaces;
 using GrammarErrorDetection.Repositories.Utils;
@@ -12,11 +13,13 @@ namespace GrammarErrorDetection.Repositories.Repositories
     public sealed class ModuleNameRepository : IModuleNameRepository
     {
         private readonly IStoredProcedureExecutor executor;
+        private readonly IStoredProcedurePageExecutor? pages;
 
-        public ModuleNameRepository(IStoredProcedureExecutor executor)
+        public ModuleNameRepository(IStoredProcedureExecutor executor, IStoredProcedurePageExecutor? pages = null)
         {
             ArgumentNullException.ThrowIfNull(executor);
             this.executor = executor;
+            this.pages = pages;
         }
 
         public async Task<List<ModuleNameEntity>> List(PaginationDto<ModuleNameList> request)
@@ -41,6 +44,31 @@ namespace GrammarErrorDetection.Repositories.Repositories
 
             using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
             return table.AsEnumerable().Select(ConvertToEntity.ModuleNameToEntity).ToList();
+        }
+
+        public async Task<PagedList<ModuleNameEntity>> ListPage(PaginationDto<ModuleNameList> request)
+        {
+            RepositoryValidation.ValidatePagination(request);
+            var filter = request.Filter ?? new ModuleNameList();
+
+            // Una sola llamada: la página filtrada ("Results") y el total sin paginar ("Total").
+            var response = await (pages ?? throw new InvalidOperationException("Falta el ejecutor de listados paginados.")).ExecutePagedStoredProcedureAsync(
+                "grammar",
+                "ModuleName_List",
+                [
+                    new("Id", NpgsqlDbType.Uuid, filter.Id),
+                    new("Name", NpgsqlDbType.Varchar, filter.Name),
+                    new("Level", NpgsqlDbType.Integer, filter.Level),
+                    new("NextModule", NpgsqlDbType.Uuid, filter.NextModule),
+                    new("Active", NpgsqlDbType.Boolean, filter.Active),
+                    new("PageNumber", NpgsqlDbType.Integer, request.PageNumber),
+                    new("PageSize", NpgsqlDbType.Integer, request.PageSize),
+                    new("Results", NpgsqlDbType.Refcursor, "modulename_list", ParameterDirection.InputOutput),
+                    new("Total", NpgsqlDbType.Refcursor, "modulename_total", ParameterDirection.InputOutput)
+                ]);
+
+            using var page = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió la página.");
+            return new PagedList<ModuleNameEntity>(page.Rows.AsEnumerable().Select(ConvertToEntity.ModuleNameToEntity).ToList(), page.TotalCount);
         }
 
         public async Task<ModuleNameEntity> Insert(ModuleNameInsert request)

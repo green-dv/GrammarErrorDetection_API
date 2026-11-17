@@ -11,6 +11,7 @@ namespace GrammarErrorDetection.Models.Grammar.ModuleNames
         [StringLength(30)]
         public string? Name { get; set; }
 
+        [Range(1, int.MaxValue, ErrorMessage = "El nivel debe ser un entero positivo.")]
         public int? Level { get; set; }
 
         [NotEmptyGuid]

@@ -10,7 +10,7 @@ namespace GrammarErrorDetection.API.Controllers;
 [Authorize(Roles = "Student,Teacher,Coordinator")]
 [Route("api/[controller]")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
-public sealed class GrammarReportController(IGrammarReportService service) : ControllerBase
+public sealed class GrammarReportController(IGrammarReportService service, ILogger<GrammarReportController> logger) : ControllerBase
 {
     [HttpGet("summary")]
     public async Task<Wrapper<GrammarReportSummaryDto>> Summary([FromQuery] GrammarReportQuery request)
@@ -36,6 +36,7 @@ public sealed class GrammarReportController(IGrammarReportService service) : Con
     public async Task<FileContentResult> Export([FromQuery] GrammarReportQuery request)
     {
         var report = await service.Export(User, request);
+        logger.LogInformation("Archivo creado {FileName} ({Size} bytes)", report.FileName, report.Content.Length);
         return File(report.Content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", report.FileName);
     }
 }
