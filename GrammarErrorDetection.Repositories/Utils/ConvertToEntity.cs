@@ -1,0 +1,328 @@
+using System.Data;
+using GrammarErrorDetection.Models.Grammar.Evaluations;
+using GrammarErrorDetection.Models.Grammar.ModuleNames;
+using GrammarErrorDetection.Models.Grammar.Classrooms;
+using GrammarErrorDetection.Models.Grammar.Classes;
+using GrammarErrorDetection.Models.Grammar.Registrations;
+using GrammarErrorDetection.Models.Grammar.Roles;
+using GrammarErrorDetection.Models.Grammar.Users;
+using GrammarErrorDetection.Models.Grammar.VerificationCodes;
+using GrammarErrorDetection.Models.Grammar.Texts;
+using GrammarErrorDetection.Models.Grammar.Sentences;
+using GrammarErrorDetection.Models.Grammar.SentenceErrors;
+using GrammarErrorDetection.Models.Grammar.SupportMaterials;
+
+namespace GrammarErrorDetection.Repositories.Utils
+{
+    public static class ConvertToEntity
+    {
+        public static SupportMaterialEntity SupportMaterialToEntity(DataRow row)
+        {
+            ArgumentNullException.ThrowIfNull(row);
+            return new SupportMaterialEntity
+            {
+                Id = row.Field<Guid>("Id"),
+                Name = row.Field<string>("Name") ?? throw new DataException("Falta Name en el material de apoyo."),
+                ErrorClassificationId = row.Field<Guid>("ErrorClassificationId"),
+                UploadDate = row.Field<DateTime>("UploadDate"),
+                FileLink = row.Field<string>("FileLink") ?? throw new DataException("Falta FileLink en el material de apoyo."),
+                FileTypeId = row.Field<Guid>("FileTypeId"), FileSize = row.Field<long?>("FileSize"),
+                UploadedBy = row.Field<Guid>("UploadedBy"), Active = row.Field<bool>("Active"),
+                CreatedAt = row.Field<DateTime>("CreatedAt"), UpdatedAt = row.Field<DateTime>("UpdatedAt")
+            };
+        }
+
+        public static SupportMaterialInteractionEntity SupportMaterialInteractionToEntity(DataRow row)
+        {
+            ArgumentNullException.ThrowIfNull(row);
+            return new SupportMaterialInteractionEntity
+            {
+                Id = row.Field<Guid>("Id"),
+                UserId = row.Field<Guid>("UserId"),
+                SupportMaterialId = row.Field<Guid>("SupportMaterialId"),
+                RegistrationId = row.Field<Guid?>("RegistrationId"),
+                FirstViewedAt = row.Field<DateTime>("FirstViewedAt"),
+                LastViewedAt = row.Field<DateTime>("LastViewedAt"),
+                ViewCount = row.Field<int>("ViewCount"),
+                Downloaded = row.Field<bool>("Downloaded"),
+                Helpful = row.Field<bool?>("Helpful"),
+                FeedbackAt = row.Field<DateTime?>("FeedbackAt"),
+                Comment = row.Field<string?>("Comment"),
+                Active = row.Field<bool>("Active"),
+                CreatedAt = row.Field<DateTime>("CreatedAt"),
+                UpdatedAt = row.Field<DateTime>("UpdatedAt")
+            };
+        }
+
+        public static SentenceEntity SentenceToEntity(DataRow row)
+        {
+            ArgumentNullException.ThrowIfNull(row);
+            return new SentenceEntity
+            {
+                Id = row.Field<Guid>("Id"), TextId = row.Field<Guid>("TextId"),
+                SentenceIndex = row.Field<int>("SentenceIndex"),
+                OriginalSentence = row.Field<string>("OriginalSentence") ?? throw new DataException("Falta OriginalSentence en la oración."),
+                CorrectedSentence = row.Field<string?>("CorrectedSentence"),
+                CreatedAt = row.Field<DateTime>("CreatedAt"), UpdatedAt = row.Field<DateTime>("UpdatedAt"),
+                Active = row.Field<bool>("Active")
+            };
+        }
+
+        public static SentenceErrorEntity SentenceErrorToEntity(DataRow row)
+        {
+            ArgumentNullException.ThrowIfNull(row);
+            return new SentenceErrorEntity
+            {
+                Id = row.Field<Guid>("Id"), SentenceId = row.Field<Guid>("SentenceId"),
+                ErrorClassificationId = row.Field<Guid>("ErrorClassificationId"),
+                ErrorToken = row.Field<string?>("ErrorToken"),
+                ErrorTokenStartIndex = row.Field<int>("ErrorTokenStartIndex"),
+                ErrorTokenEndIndex = row.Field<int>("ErrorTokenEndIndex"),
+                SuggestedCorrection = row.Field<string?>("SuggestedCorrection"),
+                ConfidenceScore = row.Field<decimal?>("ConfidenceScore"),
+                CreatedAt = row.Field<DateTime>("CreatedAt"), UpdatedAt = row.Field<DateTime>("UpdatedAt"),
+                Active = row.Field<bool>("Active")
+            };
+        }
+
+        public static EvaluationEntity EvaluationListToEntity(DataRow row)
+        {
+            var evaluation = EvaluationToEntity(row);
+            evaluation.UserId = row.Field<Guid>("UserId");
+            return evaluation;
+        }
+
+        public static EvaluationEntity EvaluationToEntity(DataRow row)
+        {
+            ArgumentNullException.ThrowIfNull(row);
+            return new EvaluationEntity
+            {
+                Id = (Guid)row["Id"],
+                RegistrationId = (Guid)row["RegistrationId"],
+                Period = row.Field<int?>("Period"),
+                WritingScore = row.Field<int?>("WritingScore"),
+                GrammarScore = row.Field<int?>("GrammarScore"),
+                VocabularyScore = row.Field<int?>("VocabularyScore"),
+                ReadingScore = row.Field<int?>("ReadingScore"),
+                ListeningScore = row.Field<int?>("ListeningScore"),
+                OralScore = row.Field<int?>("OralScore"),
+                AcademicPerformance = row.Field<int?>("AcademicPerformance"),
+                CreatedAt = (DateTime)row["CreatedAt"],
+                UpdatedAt = (DateTime)row["UpdatedAt"],
+                Active = (bool)row["Active"]
+            };
+        }
+
+        /// <summary>
+        /// Convierte una fila con las columnas de grammar."ModuleName" a su entidad.
+        /// </summary>
+        /// <param name="row">Fila con las columnas de la entidad, incluidos sus campos anulables.</param>
+        public static ModuleNameEntity ModuleNameToEntity(DataRow row)
+        {
+            ArgumentNullException.ThrowIfNull(row);
+
+            return new ModuleNameEntity
+            {
+                Id = (Guid)row["Id"],
+                Name = (string)row["Name"],
+                Level = (int)row["Level"],
+                NextModule = row.Field<Guid?>("NextModule"),
+                NextModuleName = row.Table.Columns.Contains("NextModuleName") ? row.Field<string?>("NextModuleName") : null,
+                Active = (bool)row["Active"]
+            };
+        }
+
+        /// <summary>
+        /// Convierte una fila con las columnas de grammar."Classroom" a su entidad.
+        /// </summary>
+        /// <param name="row">Fila con las columnas de la entidad, incluidos sus campos anulables.</param>
+        public static ClassroomEntity ClassroomToEntity(DataRow row)
+        {
+            ArgumentNullException.ThrowIfNull(row);
+
+            return new ClassroomEntity
+            {
+                Id = (Guid)row["Id"],
+                Name = (string)row["Name"],
+                Capacity = (int)row["Capacity"],
+                CreatedAt = (DateTime)row["CreatedAt"],
+                UpdatedAt = (DateTime)row["UpdatedAt"],
+                Active = (bool)row["Active"]
+            };
+        }
+
+        /// <summary>
+        /// Convierte el cursor enriquecido de Class_List a su entidad.
+        /// </summary>
+        /// <param name="row">Fila con las columnas de la entidad, incluidos sus campos anulables.</param>
+        public static ClassEntity ClassListToEntity(DataRow row)
+        {
+            var entity = ClassToEntity(row);
+            entity.TeacherName = row.Field<string?>("TeacherName");
+            entity.ModuleName = row.Field<string?>("ModuleName");
+            entity.ModuleLevel = row.IsNull("ModuleLevel") ? null : Convert.ToInt32(row["ModuleLevel"]);
+            entity.ClassroomName = row.Field<string?>("ClassroomName");
+            entity.ClassroomCapacity = row.IsNull("ClassroomCapacity") ? null : Convert.ToInt32(row["ClassroomCapacity"]);
+            entity.StudentCount = row.IsNull("StudentCount") ? null : Convert.ToInt64(row["StudentCount"]);
+            entity.Exam1Average = row.IsNull("Exam1Average") ? null : Convert.ToDecimal(row["Exam1Average"]);
+            entity.Exam2Average = row.IsNull("Exam2Average") ? null : Convert.ToDecimal(row["Exam2Average"]);
+            return entity;
+        }
+
+        public static ClassEntity ClassToEntity(DataRow row)
+        {
+            ArgumentNullException.ThrowIfNull(row);
+
+            return new ClassEntity
+            {
+                Id = (Guid)row["Id"],
+                TeacherId = (Guid)row["TeacherId"],
+                ModuleNameId = (Guid)row["ModuleNameId"],
+                Bimester = (int)row["Bimester"],
+                Year = (int)row["Year"],
+                StartDate = row.Field<DateTime?>("StartDate"),
+                EndDate = row.Field<DateTime?>("EndDate"),
+                Parallel = row.Field<string?>("Parallel"),
+                ClassroomId = (Guid)row["ClassroomId"],
+                StartTime = row["StartTime"] is TimeOnly startTime
+                    ? startTime : TimeOnly.FromTimeSpan((TimeSpan)row["StartTime"]),
+                EndTime = row["EndTime"] is TimeOnly endTime
+                    ? endTime : TimeOnly.FromTimeSpan((TimeSpan)row["EndTime"]),
+                CreatedAt = (DateTime)row["CreatedAt"],
+                UpdatedAt = (DateTime)row["UpdatedAt"],
+                Active = (bool)row["Active"]
+            };
+        }
+
+        /// <summary>
+        /// Convierte una fila con las columnas de grammar."Registration" a su entidad.
+        /// </summary>
+        /// <param name="row">Fila con las columnas de la entidad, incluidos sus campos anulables.</param>
+        public static RegistrationEntity RegistrationToEntity(DataRow row)
+            => RegistrationToEntity(row, "Id");
+
+        public static RegistrationEntity RegistrationListToEntity(DataRow row)
+        {
+            ArgumentNullException.ThrowIfNull(row);
+            return new RegistrationEntity
+            {
+                Id = row.Field<Guid>("RegistrationId"),
+                UserId = row.Field<Guid>("UserId"),
+                ClassId = row.Field<Guid?>("ClassId"),
+                RegistrationDate = row.Field<DateTime?>("RegistrationDate"),
+                Status = row.Field<string>("Status") ?? throw new DataException("Falta Status en Registration_List."),
+                UpdatedAt = row.Field<DateTime>("UpdatedAt"),
+                InvoiceLink = row.Table.Columns.Contains("InvoiceLink") ? row.Field<string?>("InvoiceLink") : null,
+                CreatedAt = row.Table.Columns.Contains("CreatedAt") ? row.Field<DateTime?>("CreatedAt") : null,
+                Active = row.Table.Columns.Contains("Active") ? row.Field<bool?>("Active") : null
+            };
+        }
+
+        private static RegistrationEntity RegistrationToEntity(DataRow row, string idColumn)
+        {
+            ArgumentNullException.ThrowIfNull(row);
+
+            return new RegistrationEntity
+            {
+                Id = (Guid)row[idColumn],
+                UserId = (Guid)row["UserId"],
+                ClassId = row.Field<Guid?>("ClassId"),
+                RegistrationDate = row.Field<DateTime?>("RegistrationDate"),
+                Status = (string)row["Status"],
+                InvoiceLink = row.Field<string?>("InvoiceLink"),
+                CreatedAt = (DateTime)row["CreatedAt"],
+                UpdatedAt = (DateTime)row["UpdatedAt"],
+                Active = (bool)row["Active"]
+            };
+        }
+
+        /// <summary>
+        /// Convierte una fila con las columnas de grammar."User" a su entidad.
+        /// </summary>
+        /// <param name="row">Fila con las columnas de la entidad, incluidos sus campos anulables.</param>
+        public static UserEntity UserToEntity(DataRow row)
+        {
+            ArgumentNullException.ThrowIfNull(row);
+
+            return new UserEntity
+            {
+                Id = (Guid)row["Id"],
+                FirstName = (string)row["FirstName"],
+                LastName = (string)row["LastName"],
+                CI = (string)row["CI"],
+                Email = (string)row["Email"],
+                Password = (string)row["Password"],
+                Phone = row.Field<string?>("Phone"),
+                FechaNacimiento = !row.Table.Columns.Contains("FechaNacimiento") ? null : row["FechaNacimiento"] switch
+                {
+                    DBNull => null,
+                    DateOnly date => date,
+                    DateTime dateTime => DateOnly.FromDateTime(dateTime),
+                    _ => throw new DataException("FechaNacimiento debe ser una fecha válida.")
+                },
+                RoleId = (Guid)row["RoleId"],
+                HasAuthenticator = (bool)row["HasAuthenticator"],
+                TotpSecret = row.Field<string?>("TotpSecret"),
+                IsTotpEnabled = (bool)row["IsTotpEnabled"],
+                ChangePassword = (bool)row["ChangePassword"],
+                CreatedAt = (DateTime)row["CreatedAt"],
+                UpdatedAt = (DateTime)row["UpdatedAt"],
+                Active = (bool)row["Active"]
+            };
+        }
+
+        /// <summary>
+        /// Convierte una fila con las columnas de grammar."VerificationCode" a su entidad.
+        /// </summary>
+        /// <param name="row">Fila con las columnas de la entidad, incluidos sus campos anulables.</param>
+        public static VerificationCodeEntity VerificationCodeToEntity(DataRow row)
+        {
+            ArgumentNullException.ThrowIfNull(row);
+
+            return new VerificationCodeEntity
+            {
+                Id = (Guid)row["Id"],
+                CodeHash = (string)row["CodeHash"],
+                Purpose = (string)row["Purpose"],
+                AttemptCount = (int)row["AttemptCount"],
+                ConsumedAt = row.Field<DateTime?>("ConsumedAt"),
+                ExpirationTime = (DateTime)row["ExpirationTime"],
+                UserId = row.Field<Guid?>("UserId"),
+                Email = row.Field<string?>("Email"),
+                CreatedAt = (DateTime)row["CreatedAt"],
+                UpdatedAt = (DateTime)row["UpdatedAt"],
+                Active = (bool)row["Active"]
+            };
+        }
+
+        public static RoleEntity RoleToEntity(DataRow row)
+        {
+            ArgumentNullException.ThrowIfNull(row);
+
+            return new RoleEntity
+            {
+                Id = (Guid)row["Id"],
+                Name = (string)row["Name"],
+                Active = (bool)row["Active"]
+            };
+        }
+        public static TextEntity TextToEntity(DataRow row)
+        {
+            ArgumentNullException.ThrowIfNull(row);
+
+            return new TextEntity
+            {
+                Id = (Guid)row["Id"],
+                UserId = (Guid)row["UserId"],
+                RegistrationId = row.Table.Columns.Contains("RegistrationId") ? row.Field<Guid?>("RegistrationId") : null,
+                SubmissionDate = DateTime.SpecifyKind((DateTime)row["SubmissionDate"], DateTimeKind.Utc),
+                OriginalContent = (string)row["OriginalContent"],
+                Status = (string)row["Status"],
+                CreatedAt = (DateTime)row["CreatedAt"],
+                UpdatedAt = (DateTime)row["UpdatedAt"],
+                Active = (bool)row["Active"],
+            };
+        }
+    }
+}
+

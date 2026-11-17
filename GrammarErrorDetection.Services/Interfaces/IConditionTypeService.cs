@@ -1,0 +1,12 @@
+using GrammarErrorDetection.Models.APIRequest;
+using GrammarErrorDetection.Models.Grammar.Dashboards;
+using GrammarErrorDetection.Models.Grammar.Gamification;
+
+namespace GrammarErrorDetection.Services.Interfaces;
+
+public interface IConditionTypeService
+{
+    Task<PagedList<ConditionTypeEntity>> List(PaginationDto<ConditionTypeList> request);
+    Task<ConditionTypeEntity> Insert(ConditionTypeInsert request);
+    Task<ConditionTypeEntity> Update(ConditionTypeUpdate request);
+}

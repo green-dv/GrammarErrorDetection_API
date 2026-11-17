@@ -1,23 +1,321 @@
+using GrammarErrorDetection.API.Logging;
+using GrammarErrorDetection.API.Middleware;
+using Serilog;
+using Serilog.Events;
+using GrammarErrorDetection.Infrastructure.Database;
+using GrammarErrorDetection.Infrastructure.Interfaces;
+using GrammarErrorDetection.Repositories.Interfaces;
+using GrammarErrorDetection.Repositories.Repositories;
+using GrammarErrorDetection.Services.Interfaces;
+using GrammarErrorDetection.Services.Services;
+using GrammarErrorDetection.Services.Configuration;
+using Npgsql;
+using Microsoft.OpenApi;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using System.Threading.RateLimiting;
+
+var envPath = Path.Combine(Directory.GetCurrentDirectory(), ".env");
+
+if (!File.Exists(envPath))
+{
+    envPath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", ".env"));
+}
+
+if (File.Exists(envPath))
+{
+    foreach (var line in File.ReadLines(envPath))
+    {
+        var text = line.Trim();
+
+        if (string.IsNullOrWhiteSpace(text) || text.StartsWith('#'))
+            continue;
+
+        var parts = text.Split('=', 2);
+
+        if (parts.Length != 2)
+            continue;
+
+        var name = parts[0].Trim();
+        var value = parts[1].Trim().Trim('"', '\'');
+
+        // Conserva las variables que ya existen en el entorno.
+        if (Environment.GetEnvironmentVariable(name) is null)
+            Environment.SetEnvironmentVariable(name, value);
+    }
+}
+
+// .env documenta ENVIRONMENT, pero ASP.NET Core solo entiende ASPNETCORE_ENVIRONMENT.
+if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") is null
+    && Environment.GetEnvironmentVariable("ENVIRONMENT") is { Length: > 0 } legacyEnvironment)
+{
+    Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", legacyEnvironment);
+}
+
+// Logger de arranque: también deja rastro si el proceso muere por una excepción no controlada o por un fallo de configuración.
+Log.Logger = LogSetup.Configure(new LoggerConfiguration()).CreateBootstrapLogger();
+AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+{
+    Log.Fatal(e.ExceptionObject as Exception, "Proceso terminado por una excepción no controlada");
+    Log.CloseAndFlush();
+};
+AppDomain.CurrentDomain.ProcessExit += (_, _) => Log.Information("Proceso finalizado (código {ExitCode})", Environment.ExitCode);
+TaskScheduler.UnobservedTaskException += (_, e) => Log.Error(e.Exception, "Excepción no observada en una tarea");
+
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseSerilog((_, _, configuration) => LogSetup.Configure(configuration));
 
-// Add services to the container.
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("LocalDevelopment", policy => policy
+            .WithOrigins("http://localhost:7178", "https://localhost:7178")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .WithExposedHeaders("Content-Disposition"));
+    });
+}
 
-builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+var jwtOptions = JwtOptions.FromConfiguration(builder.Configuration);
+builder.Services.AddSingleton(jwtOptions);
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Secret)),
+            ValidateIssuer = true,
+            ValidIssuer = jwtOptions.Issuer,
+            ValidateAudience = true,
+            ValidAudience = jwtOptions.Audience,
+            ValidateLifetime = true,
+            RoleClaimType = System.Security.Claims.ClaimTypes.Role,
+            ClockSkew = TimeSpan.Zero,
+            ValidAlgorithms = [SecurityAlgorithms.HmacSha256]
+        };
+    });
+builder.Services.AddAuthorization();
+builder.Services.AddSingleton(provider =>
+{
+    var configuration = provider.GetRequiredService<IConfiguration>();
+    return new SupportMaterialFileOptions
+    {
+        BaseUrl = configuration["SupportMaterialFiles:BaseUrl"]
+            ?? throw new InvalidOperationException("Falta configurar SupportMaterialFiles:BaseUrl."),
+        PublicBaseUrl = configuration["SupportMaterialFiles:PublicBaseUrl"],
+        StoragePath = configuration["SupportMaterialFiles:StoragePath"]
+            ?? throw new InvalidOperationException("Falta configurar SupportMaterialFiles:StoragePath."),
+        ApiKey = configuration["SupportMaterialFiles:ApiKey"]
+    };
+});
+builder.Services.AddHttpClient<ISupportMaterialFileService, GrammarErrorDetection.Services.Services.SupportMaterials.SupportMaterialFileService>(
+        client => client.Timeout = TimeSpan.FromMinutes(3))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("auth", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0
+        }));
+});
+
+var expirationSetting = builder.Configuration[VerificationCodeOptions.EnvironmentVariable] ?? "10";
+if (!int.TryParse(expirationSetting, out var expirationMinutes) || expirationMinutes < 1)
+{
+    throw new InvalidOperationException(
+        $"{VerificationCodeOptions.EnvironmentVariable} debe ser un entero positivo en minutos.");
+}
+builder.Services.AddSingleton(new VerificationCodeOptions(expirationMinutes));
+builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+builder.Services.AddSingleton(provider =>
+{
+    var configuration = provider.GetRequiredService<IConfiguration>();
+    return new NlpOptions { Endpoint = configuration["NLP_API_URL"] ?? configuration["Nlp:Endpoint"] ?? string.Empty };
+});
+builder.Services.AddHttpClient<INlpService, NlpService>(client => client.Timeout = TimeSpan.FromSeconds(60));
+builder.Services.AddSingleton(provider =>
+{
+    var configuration = provider.GetRequiredService<IConfiguration>();
+    return new AchievementFileOptions
+    {
+        BaseUrl = configuration["AchievementFiles:BaseUrl"] ?? "http://localhost:8081/",
+        PublicBaseUrl = configuration["AchievementFiles:PublicBaseUrl"],
+        Directory = configuration["AchievementFiles:Directory"] ?? "archivos"
+    };
+});
+builder.Services.AddHttpClient<IAchievementFileService, AchievementFileService>(client => client.Timeout = TimeSpan.FromSeconds(60))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+
+builder.Services.AddSingleton<NpgsqlDataSource>(provider =>
+{
+    var configuration = provider.GetRequiredService<IConfiguration>();
+
+    string Required(string name)
+    {
+        var value = configuration[name];
+
+        return !string.IsNullOrWhiteSpace(value) ? value : throw new InvalidOperationException($"Falta configurar {name} en el entorno o en .env.");
+    }
+
+    if (!int.TryParse(Required("DB_PORT"), out var port) ||
+        port is < 1 or > 65535)
+    {
+        throw new InvalidOperationException("DB_PORT no es vÃ¡lido.");
+    }
+
+    var connection = new NpgsqlConnectionStringBuilder
+    {
+        Host = Required("DB_HOST"),
+        Port = port,
+        Database = Required("DB_NAME"),
+        Username = Required("DB_USER"),
+        Password = Required("DB_PASSWORD")
+    };
+
+    return NpgsqlDataSource.Create(connection.ConnectionString);
+});
+
+builder.Services.AddScoped<IStoredProcedureExecutor, StoredProcedureExecutor>();
+builder.Services.AddScoped<IStoredProcedurePageExecutor, StoredProcedureExecutor>();
+builder.Services.AddScoped<IStoredProcedureMultiResultExecutor, StoredProcedureExecutor>();
+builder.Services.AddScoped<IStudentDashboardRepository, StudentDashboardRepository>();
+builder.Services.AddScoped<IStudentDashboardService, StudentDashboardService>();
+builder.Services.AddScoped<IStaffDashboardRepository, StaffDashboardRepository>();
+builder.Services.AddScoped<IStaffDashboardService, StaffDashboardService>();
+builder.Services.AddScoped<IGrammarReportRepository, GrammarReportRepository>();
+builder.Services.AddScoped<IStudentProgressRepository, StudentProgressRepository>();
+builder.Services.AddScoped<IGrammarReportService, GrammarReportService>();
+builder.Services.AddSingleton<GrammarReportExcelService>();
+builder.Services.AddScoped<IUserLeaderboardRepository, UserLeaderboardRepository>();
+builder.Services.AddScoped<IFileTypeRepository, FileTypeRepository>();
+builder.Services.AddScoped<IErrorClassificationService, ErrorClassificationService>();
+builder.Services.AddScoped<IFileTypeService, FileTypeService>();
+builder.Services.AddScoped<ISupportMaterialRepository, SupportMaterialRepository>();
+builder.Services.AddScoped<IPointTransactionRepository, PointTransactionRepository>();
+builder.Services.AddScoped<IUserLevelRepository, UserLevelRepository>();
+builder.Services.AddScoped<IUserLevelService, UserLevelService>();
+builder.Services.AddScoped<IPointTransactionService, PointTransactionService>();
+builder.Services.AddScoped<IUserLeaderboardService, UserLeaderboardService>();
+builder.Services.AddScoped<ISupportMaterialService, SupportMaterialService>();
+builder.Services.AddScoped<ISupportMaterialRecommendationService, GrammarErrorDetection.Services.Services.SupportMaterials.SupportMaterialRecommendationService>();
+builder.Services.AddScoped<ISupportMaterialInteractionService, GrammarErrorDetection.Services.Services.SupportMaterials.SupportMaterialInteractionService>();
+builder.Services.AddScoped<IAchievementRepository, AchievementRepository>();
+builder.Services.AddScoped<IUserAchievementRepository, UserAchievementRepository>();
+builder.Services.AddScoped<IUserAchievementService, UserAchievementService>();
+builder.Services.AddScoped<IAchievementCollectionRepository, AchievementCollectionRepository>();
+builder.Services.AddScoped<IAchievementCollectionService, AchievementCollectionService>();
+builder.Services.AddScoped<IAchievementService, AchievementService>();
+builder.Services.AddScoped<IChallengeRepository, ChallengeRepository>();
+builder.Services.AddScoped<IChallengeService, ChallengeService>();
+builder.Services.AddScoped<IAchievementCategoryRepository, AchievementCategoryRepository>();
+builder.Services.AddScoped<IAchievementCategoryService, AchievementCategoryService>();
+builder.Services.AddScoped<IConditionTypeRepository, ConditionTypeRepository>();
+builder.Services.AddScoped<IConditionTypeService, ConditionTypeService>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IModuleNameRepository, ModuleNameRepository>();
+builder.Services.AddScoped<IClassroomRepository, ClassroomRepository>();
+builder.Services.AddScoped<IClassRepository, ClassRepository>();
+builder.Services.AddScoped<IRegistrationRepository, RegistrationRepository>();
+builder.Services.AddScoped<IEvaluationRepository, EvaluationRepository>();
+builder.Services.AddScoped<ITextRepository, TextRepository>();
+builder.Services.AddScoped<ISentenceRepository, SentenceRepository>();
+builder.Services.AddScoped<ISentenceErrorRepository, SentenceErrorRepository>();
+builder.Services.AddScoped<IErrorClassificationRepository, ErrorClassificationRepository>();
+builder.Services.AddScoped<IVerificationCodeRepository, VerificationCodeRepository>();
+builder.Services.AddScoped<IRoleRepository, RoleRepository>();
+builder.Services.AddScoped<IEmailRepository, EmailRepository>();
+builder.Services.AddScoped<IAuthChallengeRepository, AuthChallengeRepository>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IUserAccessService, UserAccessService>();
+builder.Services.AddSingleton(builder.Configuration.GetSection("UserProvisioning").Get<GrammarErrorDetection.Models.Grammar.Users.UserProvisioningOptions>()
+    ?? new GrammarErrorDetection.Models.Grammar.Users.UserProvisioningOptions());
+builder.Services.AddScoped<IUserProvisioningService, UserProvisioningService>();
+builder.Services.AddScoped<IModuleNameService, ModuleNameService>();
+builder.Services.AddScoped<IClassroomService, ClassroomService>();
+builder.Services.AddScoped<IClassService, ClassService>();
+builder.Services.AddScoped<IRegistrationService, RegistrationService>();
+builder.Services.AddScoped<IEvaluationService, EvaluationService>();
+builder.Services.AddScoped<ITextService, TextService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IVerificationCodeService, VerificationCodeService>();
+builder.Services.AddScoped<IRoleService, RoleService>();
+
+builder.Services.AddControllers(options => options.Filters.Add<ActionLogFilter>()).ConfigureApiBehaviorOptions(options =>
+{
+    options.InvalidModelStateResponseFactory = ExceptionHandlerMiddleware.CreateValidationErrorResponse;
+});
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "GrammarErrorDetection API",
+        Version = "v1"
+    });
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "Introduce solo el JWT de acceso, sin el prefijo Bearer."
+    });
+    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecuritySchemeReference("Bearer", document)] = []
+    });
+    options.OperationFilter<GrammarErrorDetection.API.Swagger.AnonymousSecurityOperationFilter>();
+});
 
 var app = builder.Build();
+
+// Una línea por petición ("GET /api/Class 200 12ms"); sin query string ni cabeceras, así no se registran tokens.
+app.UseSerilogRequestLogging(options =>
+{
+    options.MessageTemplate = "{RequestMethod} {RequestPath} {StatusCode} {Elapsed:0}ms";
+    options.GetLevel = (context, _, _) =>
+        context.Request.Path.StartsWithSegments("/swagger") || context.Request.Path.StartsWithSegments("/health")
+            || HttpMethods.IsOptions(context.Request.Method)
+            ? LogEventLevel.Verbose
+            : context.Response.StatusCode >= 500 ? LogEventLevel.Error
+            : context.Response.StatusCode >= 400 ? LogEventLevel.Warning : LogEventLevel.Information;
+});
+app.UseMiddleware<ExceptionHandlerMiddleware>();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("v1/swagger.json", "GrammarErrorDetection API v1");
+    });
 }
 
-app.UseHttpsRedirection();
+// Detrás del proxy (Caddy) el TLS lo termina él: el contenedor solo habla HTTP y no hay puerto HTTPS al que redirigir.
+var behindProxy = app.Configuration.GetValue<bool>("ASPNETCORE_FORWARDEDHEADERS_ENABLED");
+if (!behindProxy)
+{
+    app.UseHttpsRedirection();
+}
 
+app.UseRouting();
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors("LocalDevelopment");
+}
+
+app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapControllers();
+// Para el healthcheck de Docker. El proxy solo enruta /api/*, así que no queda expuesto públicamente.
+app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 
 app.Run();

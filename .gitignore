@@ -2,6 +2,7 @@
 [Bb]in/
 [Oo]bj/
 [Aa]rtifacts/
+/.artifacts/
 
 # Visual Studio
 .vs/
@@ -20,6 +21,16 @@ _ReSharper*/
 coverage/
 *.coverage
 *.coveragexml
+[Tt]ests/
+[Tt]est/
+[Pp]rueba/
+[Pp]ruebas/
+
+# Carpetas locales de scripts, documentación y pruebas
+/database/
+/docs/
+/tests/
+*.md
 
 # Logs
 *.log
