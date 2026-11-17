@@ -1,0 +1,103 @@
+name: Deploy API
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/green-dv/grammarerrordetection_api
+  # Carpeta del VPS, relativa al home de green. Aqui vive el .env de la API (solo en el servidor).
+  DEPLOY_DIR: apps/GrammarErrorDetection/api
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      # Si la solucion no compila, no se despliega. (GrammarErrorDetection.Checks no esta en la .slnx
+      # y hoy no compila; cuando se actualice, anadir aqui "dotnet run --project GrammarErrorDetection.Checks".)
+      - name: Build solution
+        run: dotnet build GrammarErrorDetection.API.slnx -c Release
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: Production
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Upload compose file
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: deploy/docker-compose.yml
+          target: ${{ env.DEPLOY_DIR }}
+          strip_components: 1
+          overwrite: true
+
+      - name: Deploy on VPS
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: GHCR_USER,GHCR_TOKEN
+          script: |
+            set -e
+            cd ~/${{ env.DEPLOY_DIR }}
+            test -f .env || { echo "Falta ~/${{ env.DEPLOY_DIR }}/.env (plantilla: deploy/env.production.example)"; exit 1; }
+            docker network inspect app-net >/dev/null 2>&1 || { echo "Falta la red app-net: docker network create app-net"; exit 1; }
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            docker compose pull
+            docker compose up -d --remove-orphans
+
+            # Espera a que el healthcheck pase; si no, muestra el log y falla el deploy.
+            for i in $(seq 1 30); do
+              status=$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q api)" 2>/dev/null || echo starting)
+              [ "$status" = "healthy" ] && break
+              sleep 4
+            done
+            if [ "$status" != "healthy" ]; then
+              echo "La API no quedo healthy (estado: $status)"
+              docker compose logs --tail=80 api
+              exit 1
+            fi
+            echo "API healthy"
+            docker image prune -f

@@ -1,4 +1,7 @@
+using GrammarErrorDetection.API.Logging;
 using GrammarErrorDetection.API.Middleware;
+using Serilog;
+using Serilog.Events;
 using GrammarErrorDetection.Infrastructure.Database;
 using GrammarErrorDetection.Infrastructure.Interfaces;
 using GrammarErrorDetection.Repositories.Interfaces;
@@ -43,7 +46,25 @@ if (File.Exists(envPath))
     }
 }
 
+// .env documenta ENVIRONMENT, pero ASP.NET Core solo entiende ASPNETCORE_ENVIRONMENT.
+if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") is null
+    && Environment.GetEnvironmentVariable("ENVIRONMENT") is { Length: > 0 } legacyEnvironment)
+{
+    Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", legacyEnvironment);
+}
+
+// Logger de arranque: también deja rastro si el proceso muere por una excepción no controlada o por un fallo de configuración.
+Log.Logger = LogSetup.Configure(new LoggerConfiguration()).CreateBootstrapLogger();
+AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+{
+    Log.Fatal(e.ExceptionObject as Exception, "Proceso terminado por una excepción no controlada");
+    Log.CloseAndFlush();
+};
+AppDomain.CurrentDomain.ProcessExit += (_, _) => Log.Information("Proceso finalizado (código {ExitCode})", Environment.ExitCode);
+TaskScheduler.UnobservedTaskException += (_, e) => Log.Error(e.Exception, "Excepción no observada en una tarea");
+
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseSerilog((_, _, configuration) => LogSetup.Configure(configuration));
 
 if (builder.Environment.IsDevelopment())
 {
@@ -225,7 +246,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IVerificationCodeService, VerificationCodeService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 
-builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
+builder.Services.AddControllers(options => options.Filters.Add<ActionLogFilter>()).ConfigureApiBehaviorOptions(options =>
 {
     options.InvalidModelStateResponseFactory = ExceptionHandlerMiddleware.CreateValidationErrorResponse;
 });
@@ -253,6 +274,17 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+// Una línea por petición ("GET /api/Class 200 12ms"); sin query string ni cabeceras, así no se registran tokens.
+app.UseSerilogRequestLogging(options =>
+{
+    options.MessageTemplate = "{RequestMethod} {RequestPath} {StatusCode} {Elapsed:0}ms";
+    options.GetLevel = (context, _, _) =>
+        context.Request.Path.StartsWithSegments("/swagger") || context.Request.Path.StartsWithSegments("/health")
+            || HttpMethods.IsOptions(context.Request.Method)
+            ? LogEventLevel.Verbose
+            : context.Response.StatusCode >= 500 ? LogEventLevel.Error
+            : context.Response.StatusCode >= 400 ? LogEventLevel.Warning : LogEventLevel.Information;
+});
 app.UseMiddleware<ExceptionHandlerMiddleware>();
 
 // Configure the HTTP request pipeline.
@@ -265,7 +297,12 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseHttpsRedirection();
+// Detrás del proxy (Caddy) el TLS lo termina él: el contenedor solo habla HTTP y no hay puerto HTTPS al que redirigir.
+var behindProxy = app.Configuration.GetValue<bool>("ASPNETCORE_FORWARDEDHEADERS_ENABLED");
+if (!behindProxy)
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseRouting();
 if (app.Environment.IsDevelopment())
@@ -278,5 +315,7 @@ app.UseAuthorization();
 app.UseRateLimiter();
 
 app.MapControllers();
+// Para el healthcheck de Docker. El proxy solo enruta /api/*, así que no queda expuesto públicamente.
+app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 
 app.Run();

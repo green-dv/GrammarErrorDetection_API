@@ -1,3 +1,4 @@
+using GrammarErrorDetection.Models.Grammar.Dashboards;
 using System.Data;
 using GrammarErrorDetection.Infrastructure.Database;
 using GrammarErrorDetection.Infrastructure.Interfaces;
@@ -30,6 +31,35 @@ public sealed class PointTransactionRepository(IStoredProcedureExecutor executor
             ], StoredProcedureResult.Cursor("Results"));
         using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
         return table.AsEnumerable().Select(ToEntity).ToList();
+    }
+
+    public async Task<PagedList<PointTransactionEntity>> ListPage(PointTransactionListQuery request)
+    {
+        if (executor is not IStoredProcedurePageExecutor pages)
+        {
+            var items = await List(request);
+            return new PagedList<PointTransactionEntity>(items, items.Count);
+        }
+
+        RepositoryValidation.ValidatePagination(request);
+        var filter = request.Filter ?? new PointTransactionList();
+        var response = await pages.ExecutePagedStoredProcedureAsync("grammar", "PointTransaction_List",
+            [
+                new("Id", NpgsqlDbType.Uuid, filter.Id),
+                new("RegistrationId", NpgsqlDbType.Uuid, filter.RegistrationId),
+                new("UserId", NpgsqlDbType.Uuid, filter.UserId),
+                new("Amount", NpgsqlDbType.Integer, filter.Amount),
+                new("Reason", NpgsqlDbType.Varchar, filter.Reason),
+                new("GrantedAt", NpgsqlDbType.Date, filter.GrantedAt),
+                new("Active", NpgsqlDbType.Boolean, filter.Active),
+                new("CreatedAt", NpgsqlDbType.Date, filter.CreatedAt),
+                new("PageNumber", NpgsqlDbType.Integer, request.PageNumber),
+                new("PageSize", NpgsqlDbType.Integer, request.PageSize),
+                new("Results", NpgsqlDbType.Refcursor, "pointtransaction_list", ParameterDirection.InputOutput),
+                new("Total", NpgsqlDbType.Refcursor, "pointtransaction_total", ParameterDirection.InputOutput)
+            ]);
+        using var page = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió la página.");
+        return new PagedList<PointTransactionEntity>(page.Rows.AsEnumerable().Select(ToEntity).ToList(), page.TotalCount);
     }
 
     public async Task<PointTransactionTotalDto> Total(PointTransactionTotalQuery request)

@@ -1,5 +1,6 @@
 ﻿using GrammarErrorDetection.Repositories.Interfaces;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System.Net;
 using System.Net.Mail;
 
@@ -8,9 +9,11 @@ namespace GrammarErrorDetection.Repositories.Repositories
     public sealed class EmailRepository : IEmailRepository
     {
         private readonly IConfiguration configuration;
-        public EmailRepository(IConfiguration configuration)
+        private readonly ILogger<EmailRepository>? logger;
+        public EmailRepository(IConfiguration configuration, ILogger<EmailRepository>? logger = null)
         {
             this.configuration = configuration;
+            this.logger = logger;
         }
 
         public async Task SendVerificationEmailAsync(string name, string email, string message, string subject)
@@ -35,7 +38,17 @@ namespace GrammarErrorDetection.Repositories.Repositories
 
             mailMessage.To.Add(new MailAddress(email, name));
 
-            await smtpClient.SendMailAsync(mailMessage);
+            // Se registra solo el asunto: nunca el destinatario ni el cuerpo (traen códigos y contraseñas temporales).
+            try
+            {
+                await smtpClient.SendMailAsync(mailMessage);
+                logger?.LogInformation("Correo enviado: {Subject}", subject);
+            }
+            catch (Exception exception)
+            {
+                logger?.LogError(exception, "No se pudo enviar el correo: {Subject}", subject);
+                throw;
+            }
         }
     }
 }

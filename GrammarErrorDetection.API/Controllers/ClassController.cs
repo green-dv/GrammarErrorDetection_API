@@ -22,12 +22,8 @@ namespace GrammarErrorDetection.API.Controllers
         [HttpGet]
         public async Task<Wrapper<List<ClassEntity>>> List([FromQuery] PaginationDto<ClassList> request)
         {
-            var data = await service.List(request);
-            return new Wrapper<List<ClassEntity>>
-            {
-                Data = data,
-                Count = data.Count
-            };
+            var page = await service.ListPage(request);
+            return new() { Data = page.Items, Count = page.Items.Count, TotalCount = page.TotalCount };
         }
 
         [HttpPost]
