@@ -335,6 +335,38 @@ Wrapper habitual y `error.errorDetails` contiene un JSON serializado con
 `upstreamStatusCode` y `detail` (incluidos `loc`, `msg` y `type`). Un timeout devuelve
 HTTP 504. El contenido vacío o sin oraciones devuelve HTTP 400.
 
+### Verificación de vocabulario
+
+`GET /api/Vocabulary/text/{textId}` requiere un JWT de usuario autenticado y verifica el vocabulario de las
+oraciones activas de un texto. Devuelve HTTP 200 con `Wrapper<VocabularyAnalysisDto>`: por oración, `issues`
+con la palabra con error (`token`, `startIndex` y `endIndex` como posiciones UTF-16 con fin exclusivo), sus
+`alternatives` y las `definitions` de cada una (`partOfSpeech` y `text`, en inglés); además `issueCount`,
+`uncheckedCount` y `source` (`Datamuse`). Un estudiante solo consulta sus propios textos (HTTP 404 si el texto
+no existe o no es suyo); Teacher y Coordinator consultan cualquiera. Hay un límite de 20 consultas por minuto por
+persona (política `vocabulary`, HTTP 429).
+
+Usa la API gratuita [Datamuse](https://www.datamuse.com/api/) (`DatamuseLookupClient`). Una palabra es inválida
+si Datamuse no tiene ninguna entrada para ella o si todas sus entradas la definen como "Misspelling of X"; en ese
+caso las alternativas salen de esa entrada, de las palabras escritas de forma parecida (con frecuencia mínima) o,
+como último recurso, de `/sug`. **No** detecta el uso incorrecto de palabras válidas, y no verifica contracciones,
+posesivos, letras sueltas, siglas, marcas ni nombres propios (`VocabularyTokenizer`). Solo viajan a Datamuse
+palabras sueltas, nunca el párrafo ni datos de la persona.
+
+Cada palabra distinta se guarda en `grammar."VocabularyWord"` (caché compartida, vigente `Vocabulary:CacheDays`
+días) y se consulta una sola vez; las siguientes consultas salen de la caché. Una consulta verifica como máximo
+`MaxNewLookupsPerRequest` palabras nuevas y hace `MaxConcurrency` llamadas simultáneas. Si Datamuse falla o
+alcanza su cuota, esas palabras se informan en `uncheckedCount` (no se guardan, así la siguiente consulta las
+reintenta) y no se afirma que el texto no tenga errores. Configuración (sección `Vocabulary` de appsettings):
+`BaseUrl`, `MaxAlternatives`, `MaxDefinitions`, `MinAlternativeFrequency`, `MaxNewLookupsPerRequest`,
+`MaxConcurrency` y `CacheDays`.
+
+**Pendiente antes del 1-feb-2027:** Datamuse exigirá clave API en todas las peticiones (hoy permite hasta 100.000
+al día sin clave). Su documentación no indica cómo se envía ni cómo se obtiene; al tenerla hay que añadirla en
+`DatamuseLookupClient`. Sin clave, desde esa fecha todas las consultas fallarán y la pestaña mostrará las palabras
+como sin verificar.
+
+Comprobaciones: `GrammarErrorDetection.Checks/VocabularyChecks.cs` (tokenizador, cliente, repositorio y servicio).
+
 `ISentenceRepository.Insert(SentenceInsert)` y
 `ISentenceErrorRepository.Insert(SentenceErrorInsert)` están registrados en DI.
 Ejecutan únicamente `grammar.Sentence_Insert` y `grammar.SentenceError_Insert`,

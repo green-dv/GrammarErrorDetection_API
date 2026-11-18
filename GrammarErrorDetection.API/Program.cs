@@ -123,6 +123,14 @@ builder.Services.AddRateLimiter(options =>
         {
             PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0
         }));
+    // Cada consulta de vocabulario puede gastar cuota de la API externa: tope por persona usuaria (por IP si no hay sesión).
+    options.AddPolicy("vocabulary", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0
+        }));
 });
 
 var expirationSetting = builder.Configuration[VerificationCodeOptions.EnvironmentVariable] ?? "10";
@@ -139,6 +147,14 @@ builder.Services.AddSingleton(provider =>
     return new NlpOptions { Endpoint = configuration["NLP_API_URL"] ?? configuration["Nlp:Endpoint"] ?? string.Empty };
 });
 builder.Services.AddHttpClient<INlpService, NlpService>(client => client.Timeout = TimeSpan.FromSeconds(60));
+// Verificación de vocabulario con la API gratuita Datamuse (sección "Vocabulary" de appsettings).
+builder.Services.AddSingleton(builder.Configuration.GetSection("Vocabulary").Get<VocabularyOptions>() ?? new VocabularyOptions());
+builder.Services.AddHttpClient<IVocabularyLookupClient, DatamuseLookupClient>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(10);
+    // Identificación genérica del cliente: no incluye datos del proyecto ni de las personas usuarias.
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("GrammarErrorDetection-API");
+}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddSingleton(provider =>
 {
     var configuration = provider.GetRequiredService<IConfiguration>();
@@ -226,6 +242,8 @@ builder.Services.AddScoped<IEvaluationRepository, EvaluationRepository>();
 builder.Services.AddScoped<ITextRepository, TextRepository>();
 builder.Services.AddScoped<ISentenceRepository, SentenceRepository>();
 builder.Services.AddScoped<ISentenceErrorRepository, SentenceErrorRepository>();
+builder.Services.AddScoped<IVocabularyWordRepository, VocabularyWordRepository>();
+builder.Services.AddScoped<IVocabularyService, VocabularyService>();
 builder.Services.AddScoped<IErrorClassificationRepository, ErrorClassificationRepository>();
 builder.Services.AddScoped<IVerificationCodeRepository, VerificationCodeRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
