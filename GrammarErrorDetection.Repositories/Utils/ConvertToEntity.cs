@@ -11,6 +11,7 @@ using GrammarErrorDetection.Models.Grammar.Texts;
 using GrammarErrorDetection.Models.Grammar.Sentences;
 using GrammarErrorDetection.Models.Grammar.SentenceErrors;
 using GrammarErrorDetection.Models.Grammar.SupportMaterials;
+using GrammarErrorDetection.Models.Grammar.Vocabulary;
 
 namespace GrammarErrorDetection.Repositories.Utils
 {
@@ -80,6 +81,21 @@ namespace GrammarErrorDetection.Repositories.Utils
                 ErrorTokenEndIndex = row.Field<int>("ErrorTokenEndIndex"),
                 SuggestedCorrection = row.Field<string?>("SuggestedCorrection"),
                 ConfidenceScore = row.Field<decimal?>("ConfidenceScore"),
+                CreatedAt = row.Field<DateTime>("CreatedAt"), UpdatedAt = row.Field<DateTime>("UpdatedAt"),
+                Active = row.Field<bool>("Active")
+            };
+        }
+
+        public static VocabularyWordEntity VocabularyWordToEntity(DataRow row)
+        {
+            ArgumentNullException.ThrowIfNull(row);
+            return new VocabularyWordEntity
+            {
+                Id = row.Field<Guid>("Id"),
+                Word = row.Field<string>("Word") ?? throw new DataException("Falta Word en la palabra de vocabulario."),
+                IsValid = row.Field<bool>("IsValid"),
+                Suggestions = VocabularyJson.Deserialize(row.Field<string?>("Suggestions")),
+                FetchedAt = row.Field<DateTime>("FetchedAt"),
                 CreatedAt = row.Field<DateTime>("CreatedAt"), UpdatedAt = row.Field<DateTime>("UpdatedAt"),
                 Active = row.Field<bool>("Active")
             };
