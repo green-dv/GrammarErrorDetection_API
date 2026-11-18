@@ -105,6 +105,7 @@ await PointTransactionChecks.Run();
 await PointTransactionAuthorizationChecks.Run();
 await UserLeaderboardChecks.Run();
 await UserLevelChecks.Run();
+await VocabularyChecks.Run();
 
 ClassEntity Course(Guid module, int year, int bimester) => new()
 {
