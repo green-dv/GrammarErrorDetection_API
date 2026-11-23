@@ -96,6 +96,7 @@ public sealed class EvaluationRepository : IEvaluationRepository
                 new("OralScore", NpgsqlDbType.Integer, request.OralScore),
                 new("AcademicPerformance", NpgsqlDbType.Integer, request.AcademicPerformance),
                 new("Active", NpgsqlDbType.Boolean, request.Active),
+                new("Comment", NpgsqlDbType.Text, request.Comment),
                 new("Evaluation", NpgsqlDbType.Unknown, Direction: ParameterDirection.Output)
             ], StoredProcedureResult.Composite("Evaluation", "grammar", "Evaluation"));
         using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");
@@ -119,6 +120,7 @@ public sealed class EvaluationRepository : IEvaluationRepository
                 new("OralScore", NpgsqlDbType.Integer, request.OralScore),
                 new("AcademicPerformance", NpgsqlDbType.Integer, request.AcademicPerformance),
                 new("Active", NpgsqlDbType.Boolean, request.Active),
+                new("Comment", NpgsqlDbType.Text, request.Comment),
                 new("Evaluation", NpgsqlDbType.Unknown, Direction: ParameterDirection.Output)
             ], StoredProcedureResult.Composite("Evaluation", "grammar", "Evaluation"));
         using var table = response.GetDataOrThrow() ?? throw new DataException("El ejecutor no devolvió una tabla.");

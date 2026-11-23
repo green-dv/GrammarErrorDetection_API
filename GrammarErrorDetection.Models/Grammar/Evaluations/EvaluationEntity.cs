@@ -20,4 +20,5 @@ public class EvaluationEntity
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public bool Active { get; set; } = true;
+    public string? Comment { get; set; }
 }

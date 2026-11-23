@@ -25,11 +25,14 @@ namespace GrammarErrorDetection.Models.Auth
         [StringLength(72, MinimumLength = 8)]
         public string Password { get; set; } = string.Empty;
 
+        /// <summary>Obligatorio al registrarse (canal de contacto por WhatsApp). En la BD la columna sigue siendo NULL.</summary>
+        [Required]
         [StringLength(12)]
         [Phone]
         public string? Phone { get; set; }
 
-        /// <summary>Opcional. No puede ser futura.</summary>
+        /// <summary>Obligatoria al registrarse. No puede ser futura.</summary>
+        [Required]
         public DateOnly? FechaNacimiento { get; set; }
     }
 }

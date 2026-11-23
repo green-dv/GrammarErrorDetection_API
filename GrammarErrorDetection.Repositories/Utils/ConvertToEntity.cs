@@ -125,7 +125,8 @@ namespace GrammarErrorDetection.Repositories.Utils
                 AcademicPerformance = row.Field<int?>("AcademicPerformance"),
                 CreatedAt = (DateTime)row["CreatedAt"],
                 UpdatedAt = (DateTime)row["UpdatedAt"],
-                Active = (bool)row["Active"]
+                Active = (bool)row["Active"],
+                Comment = row.Table.Columns.Contains("Comment") ? row.Field<string?>("Comment") : null
             };
         }
 
