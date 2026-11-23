@@ -285,7 +285,7 @@ public sealed class RegistrationService : IRegistrationService
     public async Task<List<StudentCourseHistoryDto>> ListStudentCourses(Guid studentId, StudentCourseHistoryQuery request)
         => (await ListStudentCoursesPage(studentId, request)).Items;
 
-    // El total es la cantidad de cursos del estudiante (sin rechazados ni cancelados) antes de aplicar la página.
+    // El total es la cantidad de cursos del estudiante (sin rechazados, cancelados ni dados de baja) antes de aplicar la página.
     public async Task<PagedList<StudentCourseHistoryDto>> ListStudentCoursesPage(Guid studentId, StudentCourseHistoryQuery request)
     {
         ValidateStudentId(studentId);
@@ -296,7 +296,8 @@ public sealed class RegistrationService : IRegistrationService
         // fecha real de inscripción antes de aplicar la página solicitada.
         var registrations = await ReadApplications(repository.ListSummary, new RegistrationSummaryList { UserId = studentId });
         var offset = ((long)request.PageNumber - 1) * request.PageSize;
-        var eligible = registrations.Where(r => r.UserId == studentId && r.ClassId.HasValue
+        // Active=false = lo quitaron del curso (o lo trasladaron): ya no es un curso suyo aunque siga "Approved".
+        var eligible = registrations.Where(r => r.UserId == studentId && r.ClassId.HasValue && r.Active != false
                 && !IsStatus(r.Status.Trim(), "Rejected") && !IsStatus(r.Status.Trim(), "Cancelled")
                 && !IsStatus(r.Status.Trim(), "Canceled"))
             .OrderByDescending(r => r.RegistrationDate).ThenByDescending(r => r.UpdatedAt)

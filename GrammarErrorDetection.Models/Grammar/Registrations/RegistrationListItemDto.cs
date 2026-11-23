@@ -14,4 +14,6 @@ public sealed class RegistrationListItemDto
     public DateTime? RegistrationDate { get; set; }
     public string Status { get; set; } = string.Empty;
     public DateTime UpdatedAt { get; set; }
+    /// <summary>False si el estudiante fue quitado del curso, trasladado o rechazado; null si el listado no lo informa.</summary>
+    public bool? Active { get; set; }
 }

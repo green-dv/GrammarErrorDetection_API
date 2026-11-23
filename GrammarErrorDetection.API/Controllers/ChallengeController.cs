@@ -20,7 +20,7 @@ public sealed class ChallengeController(IChallengeService service) : ControllerB
     }
 
     [HttpPost]
-    [Authorize(Roles = "Coordinator")]
+    [Authorize(Roles = "Teacher,Coordinator")]
     public async Task<Wrapper<ChallengeEntity>> Insert([FromBody] ChallengeInsert request)
     {
         var data = await service.Insert(request, UserId());
@@ -29,19 +29,19 @@ public sealed class ChallengeController(IChallengeService service) : ControllerB
     }
 
     [HttpPut]
-    [Authorize(Roles = "Coordinator")]
+    [Authorize(Roles = "Teacher,Coordinator")]
     public async Task<Wrapper<ChallengeEntity>> Update([FromBody] ChallengeUpdate request)
         => new() { Data = await service.Update(request) };
 
     /// <summary>Repetir: abre una nueva ronda con nuevas fechas y vuelve a habilitar el desafío para todos.</summary>
     [HttpPost("{id:guid}/repeat")]
-    [Authorize(Roles = "Coordinator")]
+    [Authorize(Roles = "Teacher,Coordinator")]
     public async Task<Wrapper<ChallengeEntity>> Repeat([FromRoute] Guid id, [FromBody] ChallengeRepeat request)
         => new() { Data = await service.Repeat(id, request) };
 
     /// <summary>Duplicar: crea una copia en borrador con las mismas condiciones.</summary>
     [HttpPost("{id:guid}/duplicate")]
-    [Authorize(Roles = "Coordinator")]
+    [Authorize(Roles = "Teacher,Coordinator")]
     public async Task<Wrapper<ChallengeEntity>> Duplicate([FromRoute] Guid id)
     {
         var data = await service.Duplicate(id, UserId());

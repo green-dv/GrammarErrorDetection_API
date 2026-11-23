@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using GrammarErrorDetection.Models.Grammar.Validation;
+using System.ComponentModel.DataAnnotations;
 
 namespace GrammarErrorDetection.API.Controllers
 {
@@ -26,10 +27,11 @@ namespace GrammarErrorDetection.API.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "Coordinator")]
-        public async Task<Wrapper<List<RegistrationListItemDto>>> List([FromQuery] PaginationDto<RegistrationSummaryList> request)
+        [Authorize(Roles = "Teacher,Coordinator")]
+        public async Task<Wrapper<List<RegistrationListItemDto>>> List([FromQuery] PaginationDto<RegistrationSummaryList> request,
+            [FromServices] ICourseAccessService access)
         {
-            var page = await service.ListPage(request);
+            var page = IsCoordinator ? await service.ListPage(request) : await ListOwned(request, access);
             return new Wrapper<List<RegistrationListItemDto>>
             {
                 Data = page.Items,
@@ -80,31 +82,86 @@ namespace GrammarErrorDetection.API.Controllers
             return new Wrapper<RegistrationEntity> { Data = data };
         }
 
-        [HttpPut("{id:guid}/decision")]
-        [Authorize(Roles = "Coordinator")]
-        public async Task<Wrapper<RegistrationEntity>> Decide([FromRoute, NotEmptyGuid] Guid id,
-            [FromBody] RegistrationDecisionRequest request)
+        // Vista previa de la invitación: mismas validaciones que Join, pero sin inscribir.
+        // Docentes y coordinadores solo reciben los datos del curso (la pantalla les explica que su rol no permite inscribirse).
+        [HttpPost("join/preview")]
+        [Authorize(Roles = "Student,Teacher,Coordinator")]
+        public async Task<Wrapper<CourseJoinResultDto>> JoinPreview([FromBody] CourseJoinRequest request,
+            [FromServices] ICourseInvitationService invitations)
         {
+            var data = User.IsInRole("Student")
+                ? await invitations.Preview(StudentId(), request.Token)
+                : await invitations.Describe(request.Token);
+            return new Wrapper<CourseJoinResultDto> { Data = data };
+        }
+
+        // Inscripción por enlace/QR de invitación: sin requisito del curso anterior, aprobada al instante.
+        [HttpPost("join")]
+        [Authorize(Roles = "Student")]
+        public async Task<Wrapper<CourseJoinResultDto>> Join([FromBody] CourseJoinRequest request,
+            [FromServices] ICourseInvitationService invitations)
+        {
+            var data = await invitations.Join(StudentId(), request.Token);
+            return new Wrapper<CourseJoinResultDto> { Data = data };
+        }
+
+        [HttpPut("{id:guid}/decision")]
+        [Authorize(Roles = "Teacher,Coordinator")]
+        public async Task<Wrapper<RegistrationEntity>> Decide([FromRoute, NotEmptyGuid] Guid id,
+            [FromBody] RegistrationDecisionRequest request, [FromServices] ICourseAccessService access)
+        {
+            if (!IsCoordinator) await access.EnsureOwnsRegistration(StudentId(), id);
             var data = await service.Decide(id, request);
             return new Wrapper<RegistrationEntity> { Data = data };
+        }
+
+        private bool IsCoordinator => User.IsInRole("Coordinator");
+
+        // Las inscripciones se listan por usuario/módulo, no por curso: se leen todas las páginas y se filtran
+        // por los cursos del docente antes de paginar.
+        private async Task<PagedList<RegistrationListItemDto>> ListOwned(PaginationDto<RegistrationSummaryList> request,
+            ICourseAccessService access)
+        {
+            var owned = await access.OwnedClassIds(StudentId());
+            var matches = new List<RegistrationListItemDto>();
+            const int batchSize = 200;
+            for (var page = 1; ; page++)
+            {
+                var batch = await service.ListPage(new PaginationDto<RegistrationSummaryList>
+                { PageNumber = page, PageSize = batchSize, Filter = request.Filter });
+                matches.AddRange(batch.Items.Where(r => r.ClassId is Guid c && owned.Contains(c)));
+                if (batch.Items.Count < batchSize) break;
+            }
+            var size = request.PageSize > 0 ? request.PageSize : matches.Count;
+            var items = matches.Skip((Math.Max(request.PageNumber, 1) - 1) * size).Take(size).ToList();
+            return new PagedList<RegistrationListItemDto>(items, matches.Count);
         }
 
         private Guid StudentId() => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id)
             && id != Guid.Empty ? id : throw new UnauthorizedAccessException();
 
         [HttpPost]
-        [Authorize(Roles = "Coordinator")]
-        public async Task<Wrapper<RegistrationEntity>> Insert([FromBody] RegistrationInsert request)
+        [Authorize(Roles = "Teacher,Coordinator")]
+        public async Task<Wrapper<RegistrationEntity>> Insert([FromBody] RegistrationInsert request,
+            [FromServices] ICourseAccessService access)
         {
+            if (!IsCoordinator)
+                await access.EnsureOwnsClass(StudentId(), request.ClassId ?? throw new ValidationException("Indica el curso de la inscripción."));
             var data = await service.Insert(request);
             Response.StatusCode = StatusCodes.Status201Created;
             return new Wrapper<RegistrationEntity> { Data = data };
         }
 
         [HttpPut]
-        [Authorize(Roles = "Coordinator")]
-        public async Task<Wrapper<RegistrationEntity>> Update([FromBody] RegistrationUpdate request)
+        [Authorize(Roles = "Teacher,Coordinator")]
+        public async Task<Wrapper<RegistrationEntity>> Update([FromBody] RegistrationUpdate request,
+            [FromServices] ICourseAccessService access)
         {
+            if (!IsCoordinator)
+            {
+                await access.EnsureOwnsRegistration(StudentId(), request.Id);
+                if (request.ClassId is Guid target) await access.EnsureOwnsClass(StudentId(), target);   // tampoco la mueve a un curso ajeno
+            }
             var data = await service.Update(request);
             return new Wrapper<RegistrationEntity> { Data = data };
         }

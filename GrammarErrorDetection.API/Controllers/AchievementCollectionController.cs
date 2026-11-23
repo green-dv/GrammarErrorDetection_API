@@ -20,7 +20,7 @@ public sealed class AchievementCollectionController(IAchievementCollectionServic
     }
 
     [HttpPost]
-    [Authorize(Roles = "Coordinator")]
+    [Authorize(Roles = "Teacher,Coordinator")]
     public async Task<Wrapper<AchievementCollectionEntity>> Insert([FromBody] AchievementCollectionInsert request)
     {
         var userId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) && id != Guid.Empty
@@ -31,7 +31,7 @@ public sealed class AchievementCollectionController(IAchievementCollectionServic
     }
 
     [HttpPut]
-    [Authorize(Roles = "Coordinator")]
+    [Authorize(Roles = "Teacher,Coordinator")]
     public async Task<Wrapper<AchievementCollectionEntity>> Update([FromBody] AchievementCollectionUpdate request)
         => new() { Data = await service.Update(request) };
 }

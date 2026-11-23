@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using GrammarErrorDetection.Models.Grammar.Validation;
 
 namespace GrammarErrorDetection.Models.Auth
 {
@@ -23,6 +24,7 @@ namespace GrammarErrorDetection.Models.Auth
 
         [Required]
         [StringLength(72, MinimumLength = 8)]
+        [StrongPassword]
         public string Password { get; set; } = string.Empty;
 
         /// <summary>Obligatorio al registrarse (canal de contacto por WhatsApp). En la BD la columna sigue siendo NULL.</summary>

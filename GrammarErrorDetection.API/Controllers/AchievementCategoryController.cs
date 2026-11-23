@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace GrammarErrorDetection.API.Controllers;
 
 [ApiController]
-[Authorize(Roles = "Coordinator")]
+[Authorize(Roles = "Teacher,Coordinator")]
 [Route("api/[controller]")]
 public sealed class AchievementCategoryController(IAchievementCategoryService service) : ControllerBase
 {

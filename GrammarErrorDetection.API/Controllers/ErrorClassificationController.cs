@@ -26,7 +26,7 @@ public sealed class ErrorClassificationController(IErrorClassificationService se
     // La lectura queda abierta a cualquier usuario autenticado (filtros de materiales y reportes);
     // solo el coordinador crea, edita o deshabilita categorías.
     [HttpPost]
-    [Authorize(Roles = "Coordinator")]
+    [Authorize(Roles = "Teacher,Coordinator")]
     public async Task<Wrapper<ErrorClassificationEntity>> Insert([FromBody] ErrorClassificationInsert request)
     {
         var data = await service.Insert(request);
@@ -36,7 +36,7 @@ public sealed class ErrorClassificationController(IErrorClassificationService se
 
     /// <summary>Edita la categoría; Active = false la deshabilita y Active = true la reactiva.</summary>
     [HttpPut]
-    [Authorize(Roles = "Coordinator")]
+    [Authorize(Roles = "Teacher,Coordinator")]
     public async Task<Wrapper<ErrorClassificationEntity>> Update([FromBody] ErrorClassificationUpdate request)
         => new() { Data = await service.Update(request) };
 }

@@ -258,6 +258,8 @@ builder.Services.AddScoped<IModuleNameService, ModuleNameService>();
 builder.Services.AddScoped<IClassroomService, ClassroomService>();
 builder.Services.AddScoped<IClassService, ClassService>();
 builder.Services.AddScoped<IRegistrationService, RegistrationService>();
+builder.Services.AddScoped<ICourseInvitationService, CourseInvitationService>();
+builder.Services.AddScoped<ICourseAccessService, CourseAccessService>();
 builder.Services.AddScoped<IEvaluationService, EvaluationService>();
 builder.Services.AddScoped<ITextService, TextService>();
 builder.Services.AddScoped<IAuthService, AuthService>();

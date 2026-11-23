@@ -21,7 +21,7 @@ public sealed class UserLevelController(IUserLevelService service) : ControllerB
     // La lectura es de cualquier usuario autenticado (el perfil muestra los niveles); solo el coordinador los gestiona.
     // Al crear, editar o deshabilitar se reasigna el nivel de todos los usuarios.
     [HttpPost]
-    [Authorize(Roles = "Coordinator")]
+    [Authorize(Roles = "Teacher,Coordinator")]
     public async Task<Wrapper<UserLevelListItemDto>> Insert([FromBody] UserLevelInsert request)
     {
         var data = await service.Insert(request);
@@ -30,7 +30,7 @@ public sealed class UserLevelController(IUserLevelService service) : ControllerB
     }
 
     [HttpPut]
-    [Authorize(Roles = "Coordinator")]
+    [Authorize(Roles = "Teacher,Coordinator")]
     public async Task<Wrapper<UserLevelListItemDto>> Update([FromBody] UserLevelUpdate request)
         => new() { Data = await service.Update(request) };
 }

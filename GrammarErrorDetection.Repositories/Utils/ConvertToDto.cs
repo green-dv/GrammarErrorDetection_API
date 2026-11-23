@@ -109,7 +109,8 @@ public static class ConvertToDto
             ModuleId = row.Field<Guid?>("ModuleId"),
             RegistrationDate = ReadDate(row, "RegistrationDate"),
             Status = row.Field<string>("Status") ?? throw new DataException("Falta Status en el listado de inscripciones."),
-            UpdatedAt = ReadDate(row, "UpdatedAt") ?? throw new DataException("Falta UpdatedAt en el listado de inscripciones.")
+            UpdatedAt = ReadDate(row, "UpdatedAt") ?? throw new DataException("Falta UpdatedAt en el listado de inscripciones."),
+            Active = row.Table.Columns.Contains("Active") ? row.Field<bool?>("Active") : null
         };
     }
 

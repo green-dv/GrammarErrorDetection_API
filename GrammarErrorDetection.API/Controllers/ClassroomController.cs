@@ -32,7 +32,7 @@ namespace GrammarErrorDetection.API.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Coordinator")]
+        [Authorize(Roles = "Teacher,Coordinator")]
         public async Task<Wrapper<ClassroomEntity>> Insert([FromBody] ClassroomInsert request)
         {
             var data = await service.Insert(request);
@@ -41,7 +41,7 @@ namespace GrammarErrorDetection.API.Controllers
         }
 
         [HttpPut]
-        [Authorize(Roles = "Coordinator")]
+        [Authorize(Roles = "Teacher,Coordinator")]
         public async Task<Wrapper<ClassroomEntity>> Update([FromBody] ClassroomUpdate request)
         {
             var data = await service.Update(request);

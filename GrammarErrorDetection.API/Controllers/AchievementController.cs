@@ -21,7 +21,7 @@ public sealed class AchievementController(IAchievementService service) : Control
     }
 
     [HttpPost]
-    [Authorize(Roles = "Coordinator")]
+    [Authorize(Roles = "Teacher,Coordinator")]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(AchievementFileOptions.MaxBytes + 64 * 1024)]
     [RequestFormLimits(MultipartBodyLengthLimit = AchievementFileOptions.MaxBytes + 64 * 1024)]
@@ -35,7 +35,7 @@ public sealed class AchievementController(IAchievementService service) : Control
     }
 
     [HttpPut]
-    [Authorize(Roles = "Coordinator")]
+    [Authorize(Roles = "Teacher,Coordinator")]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(AchievementFileOptions.MaxBytes + 64 * 1024)]
     [RequestFormLimits(MultipartBodyLengthLimit = AchievementFileOptions.MaxBytes + 64 * 1024)]

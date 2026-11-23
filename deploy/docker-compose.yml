@@ -1,9 +1,12 @@
-# Se copia a ~/apps/GrammarErrorDetection/api/ en el VPS en cada deploy (lo hace el workflow).
+# DEMO: se copia a ~/apps/GrammarErrorDetection/webTeachers/api/ en el VPS en cada deploy (lo hace el workflow).
 # El .env de esa carpeta solo existe en el VPS (plantilla: deploy/env.production.example).
-# El proxy (Caddy) debe enviar /api/* a api:8080 SIN quitar el prefijo.
+# El proxy (Caddy) debe enviar /api/* de demo.grammarpractice.site a api-demo:8080 SIN quitar el prefijo.
+# "name" fija el proyecto (volumenes api_logs/api_data propios) y evita que --remove-orphans toque produccion.
+# El servicio se llama api-demo porque en app-net el alias "api" ya es el de produccion.
+name: grammarpractice-demo-api
 services:
-  api:
-    image: ghcr.io/green-dv/grammarerrordetection_api:latest
+  api-demo:
+    image: ghcr.io/green-dv/grammarerrordetection_api_demo:latest
     restart: unless-stopped
     env_file: .env
     environment:

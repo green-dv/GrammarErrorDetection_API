@@ -2,17 +2,17 @@ name: Deploy API
 
 on:
   push:
-    branches: [master]
+    branches: [master, feature/InvitacionQR]
   workflow_dispatch:
 
 concurrency:
-  group: deploy-api
+  group: deploy-api-demo
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/green-dv/grammarerrordetection_api
+  IMAGE: ghcr.io/green-dv/grammarerrordetection_api_demo
   # Carpeta del VPS, relativa al home de green. Aqui vive el .env de la API (solo en el servidor).
-  DEPLOY_DIR: apps/GrammarErrorDetection/api
+  DEPLOY_DIR: apps/GrammarErrorDetection/webTeachers/api
 
 jobs:
   build:
@@ -90,13 +90,13 @@ jobs:
 
             # Espera a que el healthcheck pase; si no, muestra el log y falla el deploy.
             for i in $(seq 1 30); do
-              status=$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q api)" 2>/dev/null || echo starting)
+              status=$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q api-demo)" 2>/dev/null || echo starting)
               [ "$status" = "healthy" ] && break
               sleep 4
             done
             if [ "$status" != "healthy" ]; then
               echo "La API no quedo healthy (estado: $status)"
-              docker compose logs --tail=80 api
+              docker compose logs --tail=80 api-demo
               exit 1
             fi
             echo "API healthy"

@@ -321,12 +321,12 @@ public sealed class UserProvisioningService(IUserRepository users, IRoleReposito
         var fullName = $"{user.FirstName} {user.LastName}".Trim();
         var result = new UserCredentialsResult { UserId = user.Id, Email = user.Email, FullName = fullName, RoleName = roleName };
         var link = string.IsNullOrWhiteSpace(options.LoginUrl) ? "" : $"\nIngresa en: {options.LoginUrl}\n";
-        var message = (created ? $"se creó tu cuenta en el portal del CETI con el rol {RoleLabel(roleName)}." : "se generaron nuevas credenciales para tu cuenta del portal del CETI.")
+        var message = (created ? $"se creó tu cuenta en el portal de Grammar Practice con el rol {RoleLabel(roleName)}." : "se generaron nuevas credenciales para tu cuenta del portal de Grammar Practice.")
             + $"\n\nUsuario: {user.Email}\nContraseña temporal: {password}\n{link}"
             + "\nPor seguridad, al iniciar sesión se te pedirá crear una nueva contraseña. No compartas este correo.";
         try
         {
-            await email.SendVerificationEmailAsync(fullName, user.Email, message, created ? "Tu cuenta del CETI" : "Nuevas credenciales del CETI");
+            await email.SendVerificationEmailAsync(fullName, user.Email, message, created ? "Tu cuenta de Grammar Practice" : "Nuevas credenciales de Grammar Practice");
             result.CredentialsSent = true;
             result.Message = created ? "Usuario creado. Se enviaron las credenciales a su correo." : "Se enviaron nuevas credenciales a su correo.";
         }

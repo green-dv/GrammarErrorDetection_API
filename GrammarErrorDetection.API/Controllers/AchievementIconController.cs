@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace GrammarErrorDetection.API.Controllers;
 
 [ApiController]
-[Authorize(Roles = "Coordinator")]
+[Authorize(Roles = "Teacher,Coordinator")]
 [Route("api/Achievement/icon")]
 public sealed class AchievementIconController(IAchievementFileService files) : ControllerBase
 {
