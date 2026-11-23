@@ -4,8 +4,8 @@ namespace GrammarErrorDetection.Models.Grammar.Classes;
 
 public sealed class ClassWithStudentsInsert : ClassInsert, IValidatableObject
 {
+    // Opcional: un curso puede crearse vacío y llenarse después (edición o enlace de invitación).
     [Required]
-    [MinLength(1)]
     public List<Guid> StudentIds { get; set; } = [];
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext) => ValidateDetails(this, StudentIds);
