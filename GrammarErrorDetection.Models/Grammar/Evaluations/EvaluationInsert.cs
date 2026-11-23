@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using GrammarErrorDetection.Models.Grammar.Validation;
 
 namespace GrammarErrorDetection.Models.Grammar.Evaluations;
@@ -15,4 +16,6 @@ public class EvaluationInsert
     public int? OralScore { get; set; }
     public int? AcademicPerformance { get; set; }
     public bool Active { get; set; } = true;
+    [StringLength(500, ErrorMessage = "El comentario admite hasta 500 caracteres.")]
+    public string? Comment { get; set; }
 }

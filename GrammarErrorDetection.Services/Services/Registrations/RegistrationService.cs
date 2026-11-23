@@ -348,8 +348,55 @@ public sealed class EvaluationService : IEvaluationService
     public Task<List<EvaluationEntity>> List(PaginationDto<EvaluationList> request) => repository.List(request);
 
     public Task<PagedList<EvaluationEntity>> ListPage(PaginationDto<EvaluationList> request) => repository.ListPage(request);
-    public Task<EvaluationEntity> Insert(EvaluationInsert request) => repository.Insert(request);
-    public Task<EvaluationEntity> Update(EvaluationUpdate request) => repository.Update(request);
+    public async Task<EvaluationEntity> Insert(EvaluationInsert request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.Period is not (1 or 2)) throw new ValidationException("Indica el examen: 1 o 2.");
+        request.Comment = ValidateScores(request.WritingScore, request.GrammarScore, request.VocabularyScore, request.ReadingScore,
+            request.ListeningScore, request.OralScore, request.AcademicPerformance, request.Comment);
+        var existing = await repository.List(new PaginationDto<EvaluationList>
+        {
+            PageNumber = 1, PageSize = 1,
+            Filter = new EvaluationList { RegistrationId = request.RegistrationId, Period = request.Period, Active = true }
+        });
+        if (existing.Count > 0) throw new ValidationException("Ya existe una evaluación activa de este examen para la inscripción. Actualízala en lugar de crear otra.");
+        return await repository.Insert(request);
+    }
+
+    public Task<EvaluationEntity> Update(EvaluationUpdate request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.Period is not null and not (1 or 2)) throw new ValidationException("El examen debe ser 1 o 2.");
+        request.Comment = ValidateScores(request.WritingScore, request.GrammarScore, request.VocabularyScore, request.ReadingScore,
+            request.ListeningScore, request.OralScore, request.AcademicPerformance, request.Comment);
+        return repository.Update(request);
+    }
+
+    /// <summary>Valida los puntajes (enteros dentro de su ponderación) y normaliza el comentario; devuelve el comentario limpio.</summary>
+    private static string? ValidateScores(int? writing, int? grammar, int? vocabulary, int? reading, int? listening, int? oral, int? academic, string? comment)
+    {
+        void Check(int? score, int maximum, string area)
+        {
+            if (score is { } value && (value < 0 || value > maximum))
+                throw new ValidationException($"{area} debe estar entre 0 y {maximum}.");
+        }
+        Check(writing, 30, "Escritura");
+        Check(oral, 15, "Expresión oral");
+        Check(listening, 10, "Comprensión auditiva");
+        Check(reading, 10, "Comprensión lectora");
+        Check(grammar, 10, "Gramática");
+        Check(vocabulary, 10, "Vocabulario");
+        Check(academic, 25, "Desempeño académico");
+        if ((grammar ?? 0) + (vocabulary ?? 0) > 10)
+            throw new ValidationException("Gramática y vocabulario comparten una ponderación de 10 puntos.");
+        if (comment is null) return null;
+        var clean = comment.Trim();
+        if (clean.Length > 500) throw new ValidationException("El comentario admite hasta 500 caracteres.");
+        // Texto libre: se rechazan caracteres de control (salvo saltos de línea y tabulación).
+        if (clean.Any(character => char.IsControl(character) && character is not ('\n' or '\r' or '\t')))
+            throw new ValidationException("El comentario contiene caracteres no permitidos.");
+        return clean;
+    }
 }
 
 internal static class RegistrationEvaluationCalculator

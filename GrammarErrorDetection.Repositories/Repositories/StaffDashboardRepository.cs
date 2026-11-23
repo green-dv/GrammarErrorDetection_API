@@ -118,6 +118,7 @@ public sealed class StaffDashboardRepository(IStoredProcedureMultiResultExecutor
                 UserId = Guid(row, "UserId") ?? throw new DataException("Estudiante sin Id."),
                 StudentName = String(row, "StudentName") ?? string.Empty,
                 Email = String(row, "Email"),
+                Phone = String(row, "Phone"),
                 ClassId = Guid(row, "ClassId") ?? throw new DataException("Curso sin Id."),
                 ModuleName = String(row, "ModuleName") ?? string.Empty,
                 Year = Int(row, "Year"),
